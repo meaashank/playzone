@@ -1,0 +1,6 @@
+{
+  "name": "PlayZone App Showcase",
+  "description": "A premium, modern, and colorful UI/UX design showcase and interactive simulator of PlayZone, a casual mini-games hub app designed for kids and parents.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
