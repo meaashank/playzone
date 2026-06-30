@@ -26,6 +26,7 @@ import {
   Award,
   Crown
 } from 'lucide-react';
+import { triggerVibration } from '../utils/vibration';
 
 // Synthetic sound synthesizer using Web Audio API to avoid external assets.
 class GameAudio {
@@ -396,8 +397,9 @@ export const TicTacToeGame: React.FC<TicTacToeGameProps> = ({
     newBoard[index] = marker;
     setBoard(newBoard);
 
-    // Play marker sound
+    // Play marker sound & trigger light tick/feedback vibration
     GameAudio.play(marker === 'X' ? 'placeX' : 'placeO', activeSound);
+    triggerVibration('light');
 
     const result = checkWinner(newBoard);
     if (result) {
@@ -416,6 +418,7 @@ export const TicTacToeGame: React.FC<TicTacToeGameProps> = ({
     if (gameWinner === 'draw') {
       setScores(s => ({ ...s, draws: s.draws + 1 }));
       GameAudio.play('draw', activeSound);
+      triggerVibration('medium');
     } else {
       const isPlayerWin = gameMode === 'pvp' || gameWinner === playerMarker;
       if (gameWinner === 'X') {
@@ -426,8 +429,10 @@ export const TicTacToeGame: React.FC<TicTacToeGameProps> = ({
       
       if (isPlayerWin) {
         GameAudio.play('victory', activeSound);
+        triggerVibration('heavy');
       } else {
         GameAudio.play('defeat', activeSound);
+        triggerVibration('medium');
       }
     }
   };
@@ -454,6 +459,7 @@ export const TicTacToeGame: React.FC<TicTacToeGameProps> = ({
       newBoard[targetIndex] = aiMarker;
       setBoard(newBoard);
       GameAudio.play(aiMarker === 'X' ? 'placeX' : 'placeO', activeSound);
+      triggerVibration('light');
 
       const result = checkWinner(newBoard);
       if (result) {

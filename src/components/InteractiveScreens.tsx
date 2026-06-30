@@ -41,6 +41,7 @@ import { GameIconRenderer } from './GameIcons';
 import { DoodleAvatar, AvatarSelectionScreen, DOODLE_AVATARS } from './DoodleAvatars';
 import { TicTacToeGame } from './TicTacToeGame';
 import { GroupPlay } from './GroupPlay';
+import { triggerVibration } from '../utils/vibration';
 
 interface ScreensProps {
   currentScreen: ScreenId;
@@ -53,8 +54,6 @@ interface ScreensProps {
   setFavorites: React.Dispatch<React.SetStateAction<string[]>>;
   notifications: Array<{ id: string; title: string; body: string; time: string; read: boolean }>;
   setNotifications: React.Dispatch<React.SetStateAction<Array<{ id: string; title: string; body: string; time: string; read: boolean }>>>;
-  isParentUnlocked: boolean;
-  setIsParentUnlocked: (unlocked: boolean) => void;
   onShowNotificationBanner: (title: string, message: string) => void;
   theme?: 'light' | 'dark';
 }
@@ -70,16 +69,12 @@ export const InteractiveScreens: React.FC<ScreensProps> = ({
   setFavorites,
   notifications,
   setNotifications,
-  isParentUnlocked,
-  setIsParentUnlocked,
   onShowNotificationBanner,
   theme = 'light',
 }) => {
   // Local Screen states
   const [searchQuery, setSearchQuery] = useState('');
   const [searchCategory, setSearchCategory] = useState('All');
-  const [pinInput, setPinInput] = useState('');
-  const [pinError, setPinError] = useState(false);
   const [isEditingUsername, setIsEditingUsername] = useState(false);
   const [tempUsername, setTempUsername] = useState(profile.username);
   const [showAvatarSelector, setShowAvatarSelector] = useState(false);
@@ -113,26 +108,6 @@ export const InteractiveScreens: React.FC<ScreensProps> = ({
       setProfile(prev => ({ ...prev, username: tempUsername.trim() }));
       setIsEditingUsername(false);
       onShowNotificationBanner('Profile Updated', 'Your username has been saved.');
-    }
-  };
-
-  // PIN verification for parent area
-  const handlePinPress = (num: string) => {
-    setPinError(false);
-    if (pinInput.length < 4) {
-      const nextPin = pinInput + num;
-      setPinInput(nextPin);
-      if (nextPin === '1234') {
-        setIsParentUnlocked(true);
-        setPinInput('');
-        onShowNotificationBanner('Parents Area Unlocked', 'Welcome to Parental Settings.');
-      } else if (nextPin.length === 4) {
-        // Trigger error after 500ms
-        setTimeout(() => {
-          setPinError(true);
-          setPinInput('');
-        }, 300);
-      }
     }
   };
 
@@ -539,7 +514,7 @@ export const InteractiveScreens: React.FC<ScreensProps> = ({
             </div>
 
             {/* Vibration Toggle */}
-            <div className="p-3.5 flex items-center justify-between">
+            <div className={`p-3.5 flex items-center justify-between ${settings.vibrationEnabled ? 'border-b border-slate-50' : ''}`}>
               <div className="flex items-center space-x-3">
                 <span className="w-8 h-8 rounded-xl bg-orange-50 text-orange-500 flex items-center justify-center animate-pulse">
                   <Sparkles size={16} />
@@ -547,12 +522,51 @@ export const InteractiveScreens: React.FC<ScreensProps> = ({
                 <span className="text-xs font-bold text-slate-700">Tactile Vibration</span>
               </div>
               <button
-                onClick={() => setSettings(s => ({ ...s, vibrationEnabled: !s.vibrationEnabled }))}
+                onClick={() => {
+                  const nextVibe = !settings.vibrationEnabled;
+                  setSettings(s => ({ ...s, vibrationEnabled: nextVibe }));
+                  if (nextVibe) {
+                    setTimeout(() => {
+                      triggerVibration(settings.vibrationIntensity || 'medium');
+                    }, 80);
+                  }
+                }}
                 className={`w-10 h-6 rounded-full p-0.5 transition-colors duration-200 cursor-pointer ${settings.vibrationEnabled ? 'bg-green-500' : 'bg-slate-200'}`}
               >
                 <div className={`w-5 h-5 bg-white rounded-full shadow-md transform transition-transform duration-200 ${settings.vibrationEnabled ? 'translate-x-4' : 'translate-x-0'}`} />
               </button>
             </div>
+
+            {/* Vibration Intensity Option (Conditional on vibrationEnabled) */}
+            {settings.vibrationEnabled && (
+              <div className="px-3.5 pb-3.5 pt-2 flex flex-col space-y-2 text-left bg-slate-50/50">
+                <div className="flex items-center justify-between">
+                  <span className="text-[9px] font-black text-slate-400 tracking-wider uppercase ml-1">Haptic Feedback Intensity</span>
+                  <span className="text-[9px] font-extrabold text-orange-600 bg-orange-50 px-2 py-0.5 rounded-full border border-orange-100 uppercase">
+                    {settings.vibrationIntensity || 'medium'}
+                  </span>
+                </div>
+                <div className="grid grid-cols-3 gap-1.5 p-1 bg-white rounded-2xl border border-slate-100">
+                  {(['light', 'medium', 'heavy'] as const).map((intensity) => (
+                    <button
+                      key={intensity}
+                      onClick={() => {
+                        setSettings((s) => ({ ...s, vibrationIntensity: intensity }));
+                        // Sample vibration instantly to feel the change!
+                        triggerVibration(intensity);
+                      }}
+                      className={`py-1.5 rounded-xl text-[10px] font-bold border transition-all cursor-pointer ${
+                        (settings.vibrationIntensity || 'medium') === intensity
+                          ? 'bg-orange-500 text-white border-orange-500 shadow-sm font-extrabold scale-[1.02]'
+                          : 'bg-slate-50 hover:bg-slate-100 border-slate-100 text-slate-500 font-medium'
+                      }`}
+                    >
+                      {intensity.toUpperCase()}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
@@ -602,33 +616,6 @@ export const InteractiveScreens: React.FC<ScreensProps> = ({
               <ChevronRight size={14} className="text-slate-400" />
             </div>
           </div>
-        </div>
-
-        {/* Security / Parents Gate Section */}
-        <div className="space-y-2">
-          <span className="text-[10px] font-black text-slate-400 tracking-wider uppercase ml-1">Parent Controls</span>
-          <button
-            onClick={() => {
-              setPinInput('');
-              setIsParentUnlocked(false);
-              setCurrentScreen('parent-area');
-            }}
-            className="w-full bg-white hover:bg-slate-50 p-3.5 rounded-3xl border border-slate-100 flex items-center justify-between shadow-sm group active:scale-[0.99] transition-all cursor-pointer text-left"
-          >
-            <div className="flex items-center space-x-3">
-              <span className="w-8 h-8 rounded-xl bg-red-50 text-red-500 flex items-center justify-center">
-                <Shield size={16} />
-              </span>
-              <div>
-                <span className="text-xs font-bold text-slate-700 block">Parents Area</span>
-                <span className="text-[9px] text-slate-400 font-medium">Protect limits with high security PIN</span>
-              </div>
-            </div>
-            <div className="flex items-center space-x-1.5">
-              <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-red-50 text-red-600 border border-red-100 uppercase">PIN Locked</span>
-              <Lock size={14} className="text-slate-400 group-hover:translate-x-0.5 transition-transform" />
-            </div>
-          </button>
         </div>
       </div>
 
@@ -1226,203 +1213,6 @@ export const InteractiveScreens: React.FC<ScreensProps> = ({
     </div>
   );
 
-  // Render Parent Area (PIN Entry + Parent Settings Dashboard)
-  const renderParentArea = () => {
-    if (isParentUnlocked) {
-      return (
-        <div id="parent-dashboard-screen" className="absolute inset-0 bg-slate-50 flex flex-col z-10">
-          <BackHeader title="Parents Dashboard" target="settings" />
-
-          <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4 text-left">
-            <div className="bg-emerald-500 rounded-3xl p-4 text-white shadow-sm flex items-center space-x-3.5 relative overflow-hidden">
-              <div className="absolute right-[-10px] bottom-[-10px] opacity-10">
-                <Shield size={100} />
-              </div>
-
-              <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center shrink-0">
-                <Shield size={28} className="text-white fill-emerald-100" />
-              </div>
-              <div>
-                <span className="bg-white/20 text-white font-extrabold text-[8px] px-2 py-0.5 rounded-full tracking-wider uppercase">Unlocked Admin</span>
-                <h3 className="text-sm font-black tracking-tight mt-0.5">Parent Settings</h3>
-                <p className="text-[9px] text-emerald-100 leading-none">Configure playtime & restrictions safely.</p>
-              </div>
-            </div>
-
-            {/* Time Controls */}
-            <div className="space-y-2">
-              <span className="text-[10px] font-black text-slate-400 tracking-wider uppercase ml-1">Daily Play limits</span>
-              <div className="bg-white rounded-3xl p-4 border border-slate-100 shadow-sm space-y-4">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-slate-700">Time Limit:</span>
-                  <span className="text-xs font-extrabold text-blue-600 bg-blue-50 px-3 py-1 rounded-full border border-blue-100">
-                    {settings.screenTimeLimit === 0 ? 'Unlimited' : `${settings.screenTimeLimit} Minutes / Day`}
-                  </span>
-                </div>
-
-                <div className="flex items-center space-x-3">
-                  <button
-                    onClick={() => setSettings(s => ({ ...s, screenTimeLimit: Math.max(0, s.screenTimeLimit - 15) }))}
-                    className="w-8 h-8 bg-slate-100 rounded-xl flex items-center justify-center text-slate-600 hover:bg-slate-200 active:scale-95 transition-all cursor-pointer font-bold"
-                  >
-                    -
-                  </button>
-                  <div className="flex-1 h-2.5 bg-slate-100 rounded-full overflow-hidden p-0.5">
-                    <div
-                      className="h-full bg-blue-600 rounded-full"
-                      style={{ width: `${settings.screenTimeLimit === 0 ? 100 : Math.min(100, (settings.screenTimeLimit / 120) * 100)}%` }}
-                    />
-                  </div>
-                  <button
-                    onClick={() => setSettings(s => ({ ...s, screenTimeLimit: s.screenTimeLimit === 0 ? 15 : Math.min(120, s.screenTimeLimit + 15) }))}
-                    className="w-8 h-8 bg-slate-100 rounded-xl flex items-center justify-center text-slate-600 hover:bg-slate-200 active:scale-95 transition-all cursor-pointer font-bold"
-                  >
-                    +
-                  </button>
-                </div>
-
-                <div className="grid grid-cols-3 gap-2">
-                  {[30, 60, 0].map((val) => (
-                    <button
-                      key={val}
-                      onClick={() => setSettings(s => ({ ...s, screenTimeLimit: val }))}
-                      className={`py-1.5 rounded-xl text-[10px] font-bold border transition-all ${
-                        settings.screenTimeLimit === val
-                          ? 'bg-blue-600 text-white border-blue-600'
-                          : 'bg-slate-50 hover:bg-slate-100 border-slate-100 text-slate-500'
-                      }`}
-                    >
-                      {val === 0 ? 'No Limit' : `${val} Mins`}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            {/* Content Filters */}
-            <div className="space-y-2">
-              <span className="text-[10px] font-black text-slate-400 tracking-wider uppercase ml-1">Kids Age Controls</span>
-              <div className="bg-white rounded-3xl p-3.5 border border-slate-100 shadow-sm space-y-2">
-                <div className="p-2.5 flex items-center justify-between border-b border-slate-50 hover:bg-slate-50 rounded-2xl cursor-pointer">
-                  <div>
-                    <span className="text-xs font-bold text-slate-700 block">Strict Mode</span>
-                    <span className="text-[9px] text-slate-400 font-medium">Only show preschool simple math & logic games</span>
-                  </div>
-                  <span className="bg-slate-100 text-slate-500 text-[8px] px-2 py-0.5 rounded-full font-bold">OFF</span>
-                </div>
-
-                <div className="p-2.5 flex items-center justify-between hover:bg-slate-50 rounded-2xl cursor-pointer">
-                  <div>
-                    <span className="text-xs font-bold text-slate-700 block">Offline Safety lock</span>
-                    <span className="text-[9px] text-slate-400 font-medium">Prevent external downloads or online lobbies</span>
-                  </div>
-                  <span className="bg-green-100 text-green-700 text-[8px] px-2 py-0.5 rounded-full font-bold">ON</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Admin actions */}
-            <button
-              onClick={() => {
-                setIsParentUnlocked(false);
-                setCurrentScreen('settings');
-                onShowNotificationBanner('Security Locked', 'Settings have been securely locked again.');
-              }}
-              className="w-full bg-red-50 hover:bg-red-100 text-red-700 border border-red-100 font-bold text-xs py-3 rounded-2xl transition-all cursor-pointer text-center"
-            >
-              Lock Settings Now
-            </button>
-          </div>
-        </div>
-      );
-    }
-
-    // Otherwise render standard PIN prompt keypad
-    return (
-      <div id="parent-pin-screen" className="absolute inset-0 bg-slate-950 flex flex-col justify-between py-10 px-6 z-20 select-none">
-        {/* Header Back */}
-        <div className="flex items-center space-x-3.5">
-          <button
-            onClick={() => setCurrentScreen('settings')}
-            className="w-9 h-9 flex items-center justify-center rounded-xl bg-slate-900 text-slate-300 hover:bg-slate-800 transition-all cursor-pointer"
-          >
-            <ArrowLeft size={16} />
-          </button>
-          <span className="text-xs font-bold text-slate-400">Parents verification gate</span>
-        </div>
-
-        {/* Security Title & PIN dots */}
-        <div className="text-center space-y-6">
-          <div className="w-14 h-14 bg-red-950/40 rounded-full flex items-center justify-center mx-auto border border-red-900/40">
-            <Lock className="text-red-500" size={24} />
-          </div>
-          <div>
-            <h2 className="text-base font-black text-white tracking-tight">Parent Verification Gate</h2>
-            <p className="text-[10px] text-slate-400 max-w-[200px] mx-auto mt-1 leading-relaxed">
-              Solve or enter PIN <span className="text-yellow-400 font-mono font-bold">1 2 3 4</span> to unlock system settings.
-            </p>
-          </div>
-
-          {/* Code input dots display */}
-          <div className="flex justify-center space-x-4 py-2">
-            {[0, 1, 2, 3].map((idx) => {
-              const active = pinInput.length > idx;
-              return (
-                <span
-                  key={idx}
-                  className={`w-3.5 h-3.5 rounded-full border-2 transition-all ${
-                    pinError
-                      ? 'bg-red-500 border-red-500 animate-bounce'
-                      : active
-                      ? 'bg-green-500 border-green-500 scale-110'
-                      : 'border-slate-800 bg-transparent'
-                  }`}
-                />
-              );
-            })}
-          </div>
-          {pinError && <p className="text-[10px] text-red-500 font-bold animate-pulse">Incorrect PIN. Try again!</p>}
-        </div>
-
-        {/* Flat Numeric Keypad */}
-        <div className="space-y-3 max-w-[240px] mx-auto w-full">
-          <div className="grid grid-cols-3 gap-3">
-            {['1', '2', '3', '4', '5', '6', '7', '8', '9'].map((num) => (
-              <button
-                key={num}
-                onClick={() => handlePinPress(num)}
-                className="aspect-square bg-slate-900/60 text-white font-extrabold text-base rounded-full hover:bg-slate-800 active:bg-slate-800/80 active:scale-95 transition-all cursor-pointer"
-              >
-                {num}
-              </button>
-            ))}
-            <button
-              onClick={() => {
-                setPinInput('');
-                setPinError(false);
-              }}
-              className="text-[10px] font-bold text-slate-400 hover:text-white"
-            >
-              CLEAR
-            </button>
-            <button
-              onClick={() => handlePinPress('0')}
-              className="aspect-square bg-slate-900/60 text-white font-extrabold text-base rounded-full hover:bg-slate-800 active:scale-95 transition-all cursor-pointer"
-            >
-              0
-            </button>
-            <button
-              onClick={() => setCurrentScreen('settings')}
-              className="text-[10px] font-bold text-red-400 hover:text-red-300"
-            >
-              CANCEL
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  };
-
   // Switch statement for screens
   const screenContent = (() => {
     switch (currentScreen) {
@@ -1444,8 +1234,6 @@ export const InteractiveScreens: React.FC<ScreensProps> = ({
         return renderNotifications();
       case 'about':
         return renderAbout();
-      case 'parent-area':
-        return renderParentArea();
       case 'group-play':
         return (
           <GroupPlay

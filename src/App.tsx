@@ -46,7 +46,6 @@ export default function App() {
 
   const [viewMode, setViewMode] = useState<'board' | 'simulator'>('board');
   const [currentScreen, setCurrentScreen] = useState<ScreenId>('splash');
-  const [isParentUnlocked, setIsParentUnlocked] = useState(false);
   const [favorites, setFavorites] = useState<string[]>([]);
   const [notifications, setNotifications] = useState<
     Array<{ id: string; title: string; body: string; time: string; read: boolean }>
@@ -64,9 +63,9 @@ export default function App() {
     soundEnabled: true,
     musicEnabled: true,
     vibrationEnabled: true,
+    vibrationIntensity: 'medium',
     notificationsEnabled: true,
-    language: 'English',
-    screenTimeLimit: 30
+    language: 'English'
   });
 
   // Action/Interaction Logs
@@ -120,6 +119,10 @@ export default function App() {
     addLog(`Tactile feedback toggled: ${settings.vibrationEnabled ? 'ACTIVE' : 'INACTIVE'}`);
   }, [settings.vibrationEnabled]);
 
+  useEffect(() => {
+    addLog(`Haptic feedback intensity set to: ${settings.vibrationIntensity.toUpperCase()}`);
+  }, [settings.vibrationIntensity]);
+
   const screenNames: Record<ScreenId, string> = {
     splash: 'Splash Screen',
     home: 'Home Screen',
@@ -130,7 +133,6 @@ export default function App() {
     search: 'Search & Filters',
     notifications: 'Alert Center',
     about: 'About App Info',
-    'parent-area': 'Parent Gateway',
     'group-play': 'Group Play',
     'tic-tac-toe': 'Tic Tac Toe Game'
   };
@@ -374,7 +376,7 @@ export default function App() {
               <div className={`mb-4 p-4 rounded-3xl max-w-lg w-full text-left flex items-start space-x-3 shadow-inner ${theme === 'dark' ? 'bg-indigo-950/40 border border-indigo-900/40 text-indigo-200' : 'bg-indigo-50 border border-indigo-100 text-indigo-800'}`}>
                 <span className="text-xl">💡</span>
                 <p className="text-xs font-medium leading-relaxed">
-                  <strong>Sandbox Hint:</strong> You can interact with the smartphone simulator natively! Toggle sound switches, tap navigation buttons, edit username, choose avatar, or input the PIN code <strong className={theme === 'dark' ? 'text-blue-400 font-mono' : 'text-blue-600 font-mono'}>1234</strong> in settings parents area.
+                  <strong>Sandbox Hint:</strong> You can interact with the smartphone simulator natively! Toggle sound switches, tap navigation buttons, edit username, choose avatar, or spin the interactive bottle!
                 </p>
               </div>
 
@@ -389,8 +391,6 @@ export default function App() {
                 setFavorites={setFavorites}
                 notifications={notifications}
                 setNotifications={setNotifications}
-                isParentUnlocked={isParentUnlocked}
-                setIsParentUnlocked={setIsParentUnlocked}
                 onShowNotificationBanner={triggerToast}
                 theme={theme}
               />

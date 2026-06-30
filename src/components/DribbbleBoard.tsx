@@ -52,9 +52,6 @@ export const DribbbleBoard: React.FC<DribbbleBoardProps> = ({
 }) => {
   const isDark = theme === 'dark';
 
-  // Simulator states frozen inside mini phone templates
-  const [parentUnlockedState, setParentUnlockedState] = useState(false);
-
   // Micro interaction preview states
   const [isHovered, setIsHovered] = useState(false);
   const [isPressed, setIsPressed] = useState(false);
@@ -80,7 +77,7 @@ export const DribbbleBoard: React.FC<DribbbleBoardProps> = ({
       label: '3. Settings Screen',
       tag: 'App Control',
       color: 'from-amber-500 to-orange-600',
-      desc: 'Tactile switches for sound/music/vibration, and strict parent verification security gates.'
+      desc: 'Tactile switches for sound, music, vibration, language selections, and about info.'
     },
     {
       id: 'profile',
@@ -115,7 +112,7 @@ export const DribbbleBoard: React.FC<DribbbleBoardProps> = ({
       label: '8. Alert Center',
       tag: 'Notifications',
       color: 'from-teal-500 to-emerald-600',
-      desc: 'Sleek notifications board. Supports simulated alerts like screen-time warnings from parents.'
+      desc: 'Sleek notifications board. Supports simulated gameplay alerts and reward announcements.'
     },
     {
       id: 'about',
@@ -123,13 +120,6 @@ export const DribbbleBoard: React.FC<DribbbleBoardProps> = ({
       tag: 'Legal info',
       color: 'from-indigo-500 to-violet-600',
       desc: 'Safe children policy terms, credit logs, and version listings under an aesthetic card container.'
-    },
-    {
-      id: 'parent-area',
-      label: '10. Parents Area',
-      tag: 'Parent Portal',
-      color: 'from-red-500 to-rose-600',
-      desc: 'Tactile verification keypad. Unlocks kid-safe time counters, content rules & offline modes.'
     }
   ];
 
@@ -154,8 +144,8 @@ export const DribbbleBoard: React.FC<DribbbleBoardProps> = ({
           </h1>
           
           <p className="text-sm md:text-base text-slate-300 leading-relaxed max-w-2xl font-medium">
-            An original, high-fidelity casual mobile gaming platform designed for children (ages 5-12) and parents. 
-            Aiming for Google Play Editors' Choice quality, the system merges kid-friendly playfulness with clean Swiss minimalism.
+            An original, high-fidelity casual mobile gaming platform designed for everyone. 
+            Aiming for Google Play Editors' Choice quality, the system merges pure playfulness with clean Swiss minimalism.
           </p>
 
           {/* Core Brand Goals indicators */}
@@ -175,10 +165,10 @@ export const DribbbleBoard: React.FC<DribbbleBoardProps> = ({
               </div>
             </div>
             <div className="bg-white/5 border border-white/10 p-3 rounded-2xl flex items-center space-x-2.5">
-              <span className="text-xl">🔒</span>
+              <span className="text-xl">💾</span>
               <div>
-                <span className="text-xs font-bold block text-white">Parents Gate</span>
-                <span className="text-[10px] text-slate-400">Secure math PINs</span>
+                <span className="text-xs font-bold block text-white">Local Play</span>
+                <span className="text-[10px] text-slate-400">Offline persistence</span>
               </div>
             </div>
             <div className="bg-white/5 border border-white/10 p-3 rounded-2xl flex items-center space-x-2.5">
@@ -200,7 +190,7 @@ export const DribbbleBoard: React.FC<DribbbleBoardProps> = ({
             <span>Interactive Concept Screen Matrix</span>
           </h2>
           <p className={`text-xs mt-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-            Displaying all 10 modular views requested by the design guide. Click <strong className="text-indigo-600">"Interactive Simulator"</strong> on any screen card to launch that view in active mode.
+            Displaying all modular views requested by the design guide. Click <strong className="text-indigo-600">"Interactive Simulator"</strong> on any screen card to launch that view in active mode.
           </p>
         </div>
 
@@ -246,8 +236,6 @@ export const DribbbleBoard: React.FC<DribbbleBoardProps> = ({
                         setFavorites={setFavorites}
                         notifications={notifications}
                         setNotifications={setNotifications}
-                        isParentUnlocked={screen.id === 'parent-area' ? true : parentUnlockedState}
-                        setIsParentUnlocked={setParentUnlockedState}
                         onShowNotificationBanner={() => {}}
                       />
                     </div>
@@ -296,7 +284,7 @@ export const DribbbleBoard: React.FC<DribbbleBoardProps> = ({
               { hex: '#16A34A', name: 'Grid Green', use: 'Checkboxes / Sliders' },
               { hex: '#CA8A04', name: 'Star Yellow', use: 'Scores / Trophy' },
               { hex: '#EA580C', name: 'Disc Orange', use: 'Highlights / Alerts' },
-              { hex: '#DC2626', name: 'Gate Red', use: 'Parent Area Bypass' },
+              { hex: '#DC2626', name: 'Alert Red', use: 'Interactive Alerts' },
               { hex: '#7C3AED', name: 'Hub Purple', use: 'Main Brand Accents' }
             ].map((sw) => (
               <div key={sw.hex} className={`p-2.5 rounded-2xl flex items-center space-x-2 border ${isDark ? 'bg-slate-900/50 border-slate-700' : 'bg-slate-50 border-slate-100'}`}>

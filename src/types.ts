@@ -30,9 +30,9 @@ export interface AppSettings {
   soundEnabled: boolean;
   musicEnabled: boolean;
   vibrationEnabled: boolean;
+  vibrationIntensity: 'light' | 'medium' | 'heavy';
   notificationsEnabled: boolean;
   language: string;
-  screenTimeLimit: number; // in minutes (parent control)
 }
 
 export interface UserProfile {
@@ -53,6 +53,5 @@ export type ScreenId =
   | 'search'
   | 'notifications'
   | 'about'
-  | 'parent-area'
   | 'group-play'
   | 'tic-tac-toe';

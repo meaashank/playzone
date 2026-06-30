@@ -15,6 +15,7 @@ import {
   Compass,
   Navigation
 } from 'lucide-react';
+import { triggerVibration } from '../utils/vibration';
 
 // Real-time sound generator using the Web Audio API
 class BottleAudio {
@@ -264,6 +265,7 @@ export const GroupPlay: React.FC<GroupPlayProps> = ({
       const tickSpacing = 15; // ticks every 15 degrees
       if (Math.abs(currentRot - lastTickAngle.current) >= tickSpacing) {
         playSound('tick');
+        triggerVibration('tick');
         lastTickAngle.current = currentRot;
       }
 
@@ -278,6 +280,7 @@ export const GroupPlay: React.FC<GroupPlayProps> = ({
         setStopAngle(Math.round(finalAngle));
         setStopDirection(getDirectionText(finalAngle));
         playSound('land');
+        triggerVibration('heavy');
         triggerConfetti(finalAngle);
 
         if (onAddCoins) {
@@ -293,6 +296,7 @@ export const GroupPlay: React.FC<GroupPlayProps> = ({
   const handleTapSpin = () => {
     if (isSpinning) return;
     playSound('swipe');
+    triggerVibration('light');
     // Random high initial speed to guarantee multiple satisfying rotations
     const direction = Math.random() > 0.5 ? 1 : -1;
     const initialVelocity = (24 + Math.random() * 16) * direction;
@@ -378,6 +382,7 @@ export const GroupPlay: React.FC<GroupPlayProps> = ({
     const tickDistance = Math.abs(newRotation - lastTickAngle.current);
     if (tickDistance >= 20) {
       playSound('tick');
+      triggerVibration('tick');
       lastTickAngle.current = newRotation;
     }
 
@@ -392,6 +397,7 @@ export const GroupPlay: React.FC<GroupPlayProps> = ({
     // If drag velocity is notable, apply physics with that initial velocity
     if (Math.abs(dragVelocity.current) > 1.5) {
       playSound('swipe');
+      triggerVibration('light');
       // Limit speed so it doesn't spin infinitely fast
       const clampedVelocity = Math.max(-45, Math.min(45, dragVelocity.current * 1.2));
       startFrictionPhysics(clampedVelocity);
