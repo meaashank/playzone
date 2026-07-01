@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Trophy,
   Flame,
@@ -79,6 +79,37 @@ export const InteractiveScreens: React.FC<ScreensProps> = ({
   const [tempUsername, setTempUsername] = useState(profile.username);
   const [showAvatarSelector, setShowAvatarSelector] = useState(false);
   const [splashProgress, setSplashProgress] = useState(35);
+
+  // Automatically progress splash screen
+  useEffect(() => {
+    if (currentScreen !== 'splash') {
+      // Reset splash progress for the next time it is visited
+      setSplashProgress(35);
+      return;
+    }
+
+    const interval = setInterval(() => {
+      setSplashProgress((prev) => {
+        if (prev >= 100) {
+          clearInterval(interval);
+          return 100;
+        }
+        return prev + 2;
+      });
+    }, 40);
+
+    return () => clearInterval(interval);
+  }, [currentScreen]);
+
+  // When progress reaches 100, transition to home
+  useEffect(() => {
+    if (currentScreen === 'splash' && splashProgress >= 100) {
+      const timer = setTimeout(() => {
+        setCurrentScreen('home');
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+  }, [splashProgress, currentScreen, setCurrentScreen]);
 
   // Filter games based on search query & category
   const filteredGames = GAME_PLACEHOLDERS.filter((game) => {
