@@ -33,7 +33,7 @@ export const GAME_PLACEHOLDERS: GamePlaceholder[] = [
     description: 'Roll the dice and race your tokens to the center.',
     color: 'bg-yellow-600',
     accentColor: 'text-yellow-200',
-    isComingSoon: true,
+    isComingSoon: false,
     iconName: 'ludo',
   },
   {

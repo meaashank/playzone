@@ -30,7 +30,7 @@ export interface AppSettings {
   soundEnabled: boolean;
   musicEnabled: boolean;
   vibrationEnabled: boolean;
-  vibrationIntensity: 'light' | 'medium' | 'heavy';
+  vibrationIntensity: 'light' | 'medium' | 'heavy' | 'tick';
   notificationsEnabled: boolean;
   language: string;
 }
@@ -54,4 +54,5 @@ export type ScreenId =
   | 'notifications'
   | 'about'
   | 'group-play'
-  | 'tic-tac-toe';
+  | 'tic-tac-toe'
+  | 'ludo-classic';

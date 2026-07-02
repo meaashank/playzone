@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React from 'react';
+import React, { useState } from 'react';
 import { motion } from 'motion/react';
 import { ArrowLeft, Check, Sparkles } from 'lucide-react';
 
@@ -456,9 +456,356 @@ export const DOODLE_AVATARS: DoodleAvatarData[] = [
   { id: 'expressive-cartoon', name: 'Expressive Cartoon', category: 'Expressions', bgColor: 'bg-[#FFCCBC]/10', pastelAccent: '#FFCCBC', svg: ExpressiveCartoonAvatar },
 ];
 
-// 3. REUSABLE AVATAR RENDERER COMPONENT
+// 3. REUSABLE AVATAR RENDERER COMPONENT AND CUSTOM SYSTEM
+
+export const CustomizableAvatar: React.FC<{ id: string; className?: string }> = ({ id, className = 'w-full h-full' }) => {
+  const parts = id.split('_');
+  const expression = parts[1] || 'smile';
+  const skinColor = parts[2] ? `#${parts[2]}` : '#FFEAA7';
+  const hairStyle = parts[3] || 'none';
+  const hairColor = parts[4] ? `#${parts[4]}` : '#2D3436';
+  const accessory = parts[5] || 'none';
+  const accessoryColor = parts[6] ? `#${parts[6]}` : '#FF7675';
+
+  return (
+    <svg viewBox="0 0 100 100" className={className} fill="none" xmlns="http://www.w3.org/2000/svg">
+      {/* 1. Background Circle using selected Skin Color */}
+      <circle cx="50" cy="50" r="46" fill={skinColor} opacity="0.35" />
+
+      {/* Background/Back Hair (like Ponytail puff or Double Buns) */}
+      {hairStyle === 'ponytail' && (
+        <>
+          <circle cx="76" cy="46" r="12" fill={hairColor} stroke="#2D3436" strokeWidth="2.5" />
+          <path d="M72 48 L84 56 C80 62, 70 60, 68 54 Z" fill={hairColor} stroke="#2D3436" strokeWidth="2" strokeLinejoin="round" />
+          <circle cx="68" cy="48" r="3" fill="#FF7675" stroke="#2D3436" strokeWidth="1.5" />
+        </>
+      )}
+      {hairStyle === 'buns' && (
+        <>
+          <circle cx="28" cy="30" r="10" fill={hairColor} stroke="#2D3436" strokeWidth="2.5" />
+          <circle cx="72" cy="30" r="10" fill={hairColor} stroke="#2D3436" strokeWidth="2.5" />
+        </>
+      )}
+      {hairStyle === 'curly' && (
+        <path d="M22 55 C12 50, 15 30, 28 25 C32 15, 48 12, 58 18 C68 12, 82 18, 80 32 C88 38, 82 58, 74 60 C70 65, 30 65, 22 55 Z" fill={hairColor} stroke="#2D3436" strokeWidth="3" strokeLinejoin="round" />
+      )}
+
+      {/* 2. Head Outline */}
+      <circle cx="50" cy="55" r="26" fill="#FFFFFF" stroke="#2D3436" strokeWidth="3" strokeLinecap="round" />
+
+      {/* 3. Base Face Expressions */}
+      {expression === 'smile' && (
+        <>
+          <circle cx="41" cy="52" r="3" fill="#2D3436" />
+          <circle cx="59" cy="52" r="3" fill="#2D3436" />
+          <path d="M43 64 Q50 71 57 64" stroke="#2D3436" strokeWidth="3" strokeLinecap="round" fill="none" />
+          <circle cx="36" cy="58" r="2.5" fill="#FF7675" opacity="0.4" />
+          <circle cx="64" cy="58" r="2.5" fill="#FF7675" opacity="0.4" />
+        </>
+      )}
+      {expression === 'sleepy' && (
+        <>
+          <path d="M37 52 Q41 56 45 52" stroke="#2D3436" strokeWidth="3" strokeLinecap="round" fill="none" />
+          <path d="M55 52 Q59 56 63 52" stroke="#2D3436" strokeWidth="3" strokeLinecap="round" fill="none" />
+          <circle cx="50" cy="65" r="2.5" fill="#2D3436" />
+          <text x="70" y="32" fill="#6C5CE7" fontSize="11" fontWeight="bold" fontFamily="monospace" transform="rotate(10 70 32)">zZz</text>
+        </>
+      )}
+      {expression === 'excited' && (
+        <>
+          <circle cx="41" cy="52" r="3" fill="#2D3436" />
+          <circle cx="59" cy="52" r="3" fill="#2D3436" />
+          <path d="M40 60 Q50 72 60 60 Z" fill="#FF7675" stroke="#2D3436" strokeWidth="3" strokeLinejoin="round" />
+        </>
+      )}
+      {expression === 'shy' && (
+        <>
+          <path d="M40 48 Q42 51 43 48" stroke="#2D3436" strokeWidth="2.5" strokeLinecap="round" fill="none" />
+          <path d="M57 48 Q58 51 60 48" stroke="#2D3436" strokeWidth="2.5" strokeLinecap="round" fill="none" />
+          <path d="M46 64 Q50 62 54 64" stroke="#2D3436" strokeWidth="2.5" strokeLinecap="round" fill="none" />
+          <ellipse cx="36" cy="59" rx="5" ry="3" fill="#FF7675" opacity="0.6" />
+          <ellipse cx="64" cy="59" rx="5" ry="3" fill="#FF7675" opacity="0.6" />
+        </>
+      )}
+      {expression === 'confident' && (
+        <>
+          <circle cx="41" cy="52" r="3" fill="#2D3436" />
+          <circle cx="59" cy="52" r="3" fill="#2D3436" />
+          <path d="M45 64 Q52 64 56 60" stroke="#2D3436" strokeWidth="3" strokeLinecap="round" fill="none" />
+        </>
+      )}
+      {expression === 'wink' && (
+        <>
+          <circle cx="41" cy="50" r="3" fill="#2D3436" />
+          <path d="M54 50 Q59 45 64 50" stroke="#2D3436" strokeWidth="3" strokeLinecap="round" fill="none" />
+          <path d="M45 61 Q50 71 55 61 Z" fill="#FF7675" stroke="#2D3436" strokeWidth="2.5" strokeLinejoin="round" />
+          <line x1="50" y1="61" x2="50" y2="67" stroke="#2D3436" strokeWidth="1.5" />
+        </>
+      )}
+      {expression === 'cheeky' && (
+        <>
+          <circle cx="41" cy="51" r="3" fill="#2D3436" />
+          <circle cx="59" cy="51" r="3" fill="#2D3436" />
+          <path d="M42 61 Q50 69 58 61" stroke="#2D3436" strokeWidth="3" strokeLinecap="round" fill="none" />
+          <ellipse cx="36" cy="57" rx="3.5" ry="2" fill="#FF7675" opacity="0.5" />
+          <ellipse cx="64" cy="57" rx="3.5" ry="2" fill="#FF7675" opacity="0.5" />
+        </>
+      )}
+
+      {/* 4. Foreground Hair / Hats */}
+      {hairStyle === 'slick' && (
+        <path d="M26 44 C34 30, 66 30, 74 44 C65 38, 55 38, 48 42 C42 45, 32 45, 26 44 Z" fill={hairColor} stroke="#2D3436" strokeWidth="2" strokeLinejoin="round" />
+      )}
+      {hairStyle === 'bob' && (
+        <>
+          <path d="M22 55 C22 35, 78 35, 78 55 C74 46, 68 40, 50 42 C32 40, 26 46, 22 55 Z" fill={hairColor} stroke="#2D3436" strokeWidth="2" />
+          <path d="M22 55 L25 64" stroke="#2D3436" strokeWidth="3" strokeLinecap="round" />
+          <path d="M78 55 L75 64" stroke="#2D3436" strokeWidth="3" strokeLinecap="round" />
+        </>
+      )}
+      {hairStyle === 'spiky' && (
+        <path d="M42 30 L46 20 L50 28 L54 18 L58 30" stroke="#2D3436" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" fill={hairColor} />
+      )}
+      {hairStyle === 'messy' && (
+        <path d="M22 45 C20 30, 30 18, 45 22 C50 14, 65 16, 70 24 C78 28, 80 40, 76 48 C72 45, 68 46, 65 44 C60 41, 52 45, 48 42 C40 40, 30 46, 22 45 Z" fill={hairColor} stroke="#2D3436" strokeWidth="2.5" strokeLinejoin="round" />
+      )}
+      {hairStyle === 'ponytail' && (
+        <path d="M21 54 C21 38, 71 38, 71 54 C65 44, 45 44, 21 54 Z" fill={hairColor} stroke="#2D3436" strokeWidth="2" />
+      )}
+      {hairStyle === 'buns' && (
+        <path d="M25 50 C25 35, 75 35, 75 50" stroke="#2D3436" strokeWidth="3" strokeLinecap="round" fill="none" />
+      )}
+      {hairStyle === 'cap' && (
+        <>
+          <path d="M22 44 Q50 30 78 44" stroke="#2D3436" strokeWidth="3" fill={hairColor} />
+          <path d="M74 42 L88 47 L78 52 Z" fill="#FF7675" stroke="#2D3436" strokeWidth="2.5" strokeLinejoin="round" />
+        </>
+      )}
+      {hairStyle === 'beanie' && (
+        <>
+          <path d="M24 50 C24 32, 76 32, 76 50 Z" fill={hairColor} stroke="#2D3436" strokeWidth="2.5" strokeLinejoin="round" />
+          <circle cx="50" cy="30" r="6" fill={hairColor} stroke="#2D3436" strokeWidth="2" />
+          <line x1="36" y1="41" x2="39" y2="48" stroke="#FFFFFF" strokeWidth="2" opacity="0.6" />
+          <line x1="50" y1="38" x2="50" y2="48" stroke="#FFFFFF" strokeWidth="2" opacity="0.6" />
+          <line x1="64" y1="41" x2="61" y2="48" stroke="#FFFFFF" strokeWidth="2" opacity="0.6" />
+        </>
+      )}
+
+      {/* 5. Accessories */}
+      {accessory === 'glasses' && (
+        <>
+          <rect x="29" y="44" width="18" height="14" rx="4" fill="none" stroke={accessoryColor} strokeWidth="3" />
+          <rect x="53" y="44" width="18" height="14" rx="4" fill="none" stroke={accessoryColor} strokeWidth="3" />
+          <line x1="47" y1="51" x2="53" y2="51" stroke="#2D3436" strokeWidth="3" />
+        </>
+      )}
+      {accessory === 'visor' && (
+        <>
+          <path d="M25 45 L75 45 L71 56 L29 56 Z" fill={accessoryColor} stroke="#2D3436" strokeWidth="2.5" strokeLinejoin="round" />
+          <line x1="25" y1="50" x2="75" y2="50" stroke="#FFFFFF" strokeWidth="1.5" opacity="0.5" />
+        </>
+      )}
+      {accessory === 'headphones' && (
+        <>
+          <path d="M22 52 A28 28 0 0 1 78 52" stroke={accessoryColor} strokeWidth="5" strokeLinecap="round" fill="none" />
+          <rect x="18" y="44" width="8" height="22" rx="4" fill={accessoryColor} stroke="#2D3436" strokeWidth="2.5" />
+          <rect x="74" y="44" width="8" height="22" rx="4" fill={accessoryColor} stroke="#2D3436" strokeWidth="2.5" />
+        </>
+      )}
+      {accessory === 'blush' && (
+        <>
+          <circle cx="36" cy="58" r="3.5" fill={accessoryColor} opacity="0.5" />
+          <circle cx="63" cy="59" r="3.5" fill={accessoryColor} opacity="0.5" />
+        </>
+      )}
+      {accessory === 'freckles' && (
+        <>
+          <circle cx="34" cy="57" r="1" fill={accessoryColor} />
+          <circle cx="36" cy="56" r="1" fill={accessoryColor} />
+          <circle cx="37" cy="58" r="1" fill={accessoryColor} />
+          <circle cx="63" cy="56" r="1" fill={accessoryColor} />
+          <circle cx="64" cy="58" r="1" fill={accessoryColor} />
+          <circle cx="66" cy="57" r="1" fill={accessoryColor} />
+        </>
+      )}
+      {accessory === 'coffee' && (
+        <>
+          <rect x="42" y="58" width="16" height="15" rx="3" fill={accessoryColor} stroke="#2D3436" strokeWidth="2.5" />
+          <path d="M58 61 C61 61, 63 64, 61 67 C59 69, 58 68, 58 68" stroke="#2D3436" strokeWidth="2" fill="none" />
+          <path d="M46 50 Q48 45 46 42" stroke="#E17055" strokeWidth="1.5" strokeLinecap="round" fill="none" />
+          <path d="M53 50 Q55 45 53 42" stroke="#E17055" strokeWidth="1.5" strokeLinecap="round" fill="none" />
+        </>
+      )}
+      {accessory === 'notes' && (
+        <>
+          <path d="M72 26 L77 24 L77 32 Z" fill={accessoryColor} />
+          <circle cx="71" cy="32" r="2.5" fill={accessoryColor} />
+        </>
+      )}
+    </svg>
+  );
+};
+
+export const mapPresetToCustom = (presetId: string) => {
+  const config = {
+    expression: 'smile',
+    skinColor: 'FFEAA7',
+    hairStyle: 'none',
+    hairColor: '2D3436',
+    accessory: 'none',
+    accessoryColor: 'FF7675'
+  };
+
+  if (presetId.startsWith('custom_')) {
+    const parts = presetId.split('_');
+    config.expression = parts[1] || 'smile';
+    config.skinColor = parts[2] || 'FFEAA7';
+    config.hairStyle = parts[3] || 'none';
+    config.hairColor = parts[4] || '2D3436';
+    config.accessory = parts[5] || 'none';
+    config.accessoryColor = parts[6] || 'FF7675';
+    return config;
+  }
+
+  switch (presetId) {
+    case 'smiling-boy':
+      config.expression = 'smile';
+      config.skinColor = 'FFEAA7';
+      config.hairStyle = 'slick';
+      config.hairColor = '2D3436';
+      break;
+    case 'smiling-girl':
+      config.expression = 'smile';
+      config.skinColor = 'FAB1A0';
+      config.hairStyle = 'bob';
+      config.hairColor = '74B9FF';
+      break;
+    case 'sleepy-face':
+      config.expression = 'sleepy';
+      config.skinColor = '74B9FF';
+      break;
+    case 'excited-face':
+      config.expression = 'excited';
+      config.skinColor = '55EFC4';
+      config.hairStyle = 'spiky';
+      break;
+    case 'nerd-glasses':
+      config.expression = 'smile';
+      config.skinColor = '81ECEC';
+      config.accessory = 'glasses';
+      config.accessoryColor = '2D3436';
+      break;
+    case 'hoodie':
+      config.expression = 'smile';
+      config.skinColor = 'A29BFE';
+      config.hairStyle = 'none';
+      break;
+    case 'messy-hair':
+      config.expression = 'smile';
+      config.skinColor = 'FCE4EC';
+      config.hairStyle = 'messy';
+      config.hairColor = 'E84393';
+      break;
+    case 'curly-hair':
+      config.expression = 'smile';
+      config.skinColor = 'E8F5E9';
+      config.hairStyle = 'curly';
+      config.hairColor = '00B894';
+      break;
+    case 'ponytail':
+      config.expression = 'wink';
+      config.skinColor = 'F3E5F5';
+      config.hairStyle = 'ponytail';
+      config.hairColor = '9C27B0';
+      break;
+    case 'bun-hairstyle':
+      config.expression = 'smile';
+      config.skinColor = 'E0F2F1';
+      config.hairStyle = 'buns';
+      config.hairColor = '009688';
+      break;
+    case 'headphones':
+      config.expression = 'smile';
+      config.skinColor = 'FFF9C4';
+      config.accessory = 'headphones';
+      config.accessoryColor = 'FF7675';
+      break;
+    case 'gamer':
+      config.expression = 'smile';
+      config.skinColor = 'D1C4E9';
+      config.accessory = 'visor';
+      config.accessoryColor = '6C5CE7';
+      break;
+    case 'artist':
+      config.expression = 'smile';
+      config.skinColor = 'FFD180';
+      config.hairStyle = 'cap';
+      config.hairColor = 'E17055';
+      break;
+    case 'book-lover':
+      config.expression = 'smile';
+      config.skinColor = 'FFF8E1';
+      config.accessory = 'glasses';
+      config.accessoryColor = '00CEC9';
+      break;
+    case 'shy-face':
+      config.expression = 'shy';
+      config.skinColor = 'FFE082';
+      break;
+    case 'confident-face':
+      config.expression = 'confident';
+      config.skinColor = 'CFD8DC';
+      break;
+    case 'wink':
+      config.expression = 'wink';
+      config.skinColor = 'FF8A80';
+      break;
+    case 'freckles':
+      config.expression = 'smile';
+      config.skinColor = 'F48FB1';
+      config.accessory = 'freckles';
+      config.accessoryColor = 'E17055';
+      break;
+    case 'cap':
+      config.expression = 'smile';
+      config.skinColor = 'FFE082';
+      config.hairStyle = 'cap';
+      config.hairColor = '00CEC9';
+      break;
+    case 'beanie':
+      config.expression = 'smile';
+      config.skinColor = 'C5CAE9';
+      config.hairStyle = 'beanie';
+      config.hairColor = 'E17055';
+      break;
+    case 'coffee-lover':
+      config.expression = 'smile';
+      config.skinColor = 'D7CCC8';
+      config.accessory = 'coffee';
+      config.accessoryColor = 'DFF9FB';
+      break;
+    case 'music-lover':
+      config.expression = 'smile';
+      config.skinColor = 'B2EBF2';
+      config.accessory = 'notes';
+      config.accessoryColor = '0097A7';
+      break;
+    case 'minimalist-face':
+      config.expression = 'smile';
+      config.skinColor = 'ECEFF1';
+      break;
+    case 'expressive-cartoon':
+      config.expression = 'cheeky';
+      config.skinColor = 'FFCCBC';
+      break;
+  }
+  return config;
+};
 
 export const DoodleAvatar: React.FC<{ id: string; className?: string }> = ({ id, className = 'w-12 h-12' }) => {
+  if (id.startsWith('custom_')) {
+    return <CustomizableAvatar id={id} className={className} />;
+  }
   const av = DOODLE_AVATARS.find(item => item.id === id);
   if (!av) {
     // Return standard fallback if ID doesn't match
@@ -466,6 +813,295 @@ export const DoodleAvatar: React.FC<{ id: string; className?: string }> = ({ id,
   }
   const SvgComponent = av.svg;
   return <SvgComponent className={className} />;
+};
+
+interface AvatarCustomizerScreenProps {
+  onBack: () => void;
+  selectedId: string;
+  onSave: (serializedId: string) => void;
+}
+
+export const AvatarCustomizerScreen: React.FC<AvatarCustomizerScreenProps> = ({
+  onBack,
+  selectedId,
+  onSave
+}) => {
+  const initialConfig = mapPresetToCustom(selectedId);
+  
+  const [expression, setExpression] = useState(initialConfig.expression);
+  const [skinColor, setSkinColor] = useState(initialConfig.skinColor);
+  const [hairStyle, setHairStyle] = useState(initialConfig.hairStyle);
+  const [hairColor, setHairColor] = useState(initialConfig.hairColor);
+  const [accessory, setAccessory] = useState(initialConfig.accessory);
+  const [accessoryColor, setAccessoryColor] = useState(initialConfig.accessoryColor);
+
+  const [activeTab, setActiveTab] = useState<'expression' | 'skin' | 'hairStyle' | 'hairColor' | 'accessory' | 'accessoryColor'>('expression');
+
+  const expressions = [
+    { id: 'smile', label: 'Smiling', emoji: '😊' },
+    { id: 'sleepy', label: 'Sleepy', emoji: '😴' },
+    { id: 'excited', label: 'Excited', emoji: '🤩' },
+    { id: 'shy', label: 'Shy', emoji: '🥺' },
+    { id: 'confident', label: 'Confident', emoji: '😎' },
+    { id: 'wink', label: 'Wink', emoji: '😉' },
+    { id: 'cheeky', label: 'Cheeky', emoji: '😜' }
+  ];
+
+  const skinColors = [
+    { value: 'FFEAA7', label: 'Butter' },
+    { value: 'FAB1A0', label: 'Peach' },
+    { value: '74B9FF', label: 'Sky' },
+    { value: '55EFC4', label: 'Mint' },
+    { value: 'A29BFE', label: 'Lavender' },
+    { value: 'FF8A80', label: 'Rose' },
+    { value: 'ECEFF1', label: 'Slate' }
+  ];
+
+  const hairStyles = [
+    { id: 'none', label: 'Bald/None', emoji: '🥚' },
+    { id: 'slick', label: 'Slick Sweep', emoji: '💇‍♂️' },
+    { id: 'bob', label: 'Bob Cut', emoji: '💇‍♀️' },
+    { id: 'spiky', label: 'Spiky', emoji: '💥' },
+    { id: 'messy', label: 'Messy Shag', emoji: '🦁' },
+    { id: 'curly', label: 'Curly Puff', emoji: '🐑' },
+    { id: 'ponytail', label: 'Ponytail', emoji: '👱‍♀️' },
+    { id: 'buns', label: 'Double Buns', emoji: '🐼' },
+    { id: 'cap', label: 'Backward Cap', emoji: '🧢' },
+    { id: 'beanie', label: 'Cozy Beanie', emoji: '🧶' }
+  ];
+
+  const hairColors = [
+    { value: '2D3436', label: 'Charcoal' },
+    { value: 'E17055', label: 'Sunset' },
+    { value: '0984E3', label: 'Cobalt' },
+    { value: 'E84393', label: 'Hot Pink' },
+    { value: '00B894', label: 'Mint' },
+    { value: '6C5CE7', label: 'Purple' },
+    { value: '00CEC9', label: 'Bright Teal' }
+  ];
+
+  const accessories = [
+    { id: 'none', label: 'None', emoji: '❌' },
+    { id: 'glasses', label: 'Round Glasses', emoji: '👓' },
+    { id: 'visor', label: 'Cyber Visor', emoji: '🥽' },
+    { id: 'headphones', label: 'Headphones', emoji: '🎧' },
+    { id: 'blush', label: 'Pink Blush', emoji: '🌸' },
+    { id: 'freckles', label: 'Freckles', emoji: '✨' },
+    { id: 'coffee', label: 'Coffee Cup', emoji: '☕' },
+    { id: 'notes', label: 'Music Notes', emoji: '🎵' }
+  ];
+
+  const accessoryColors = [
+    { value: 'FF7675', label: 'Warm Red' },
+    { value: '74B9FF', label: 'Sky Blue' },
+    { value: '55EFC4', label: 'Mint Green' },
+    { value: 'FFEAA7', label: 'Yellow Gold' },
+    { value: 'A29BFE', label: 'Soft Purple' },
+    { value: '2D3436', label: 'Midnight' }
+  ];
+
+  const getSerializedId = () => {
+    return `custom_${expression}_${skinColor}_${hairStyle}_${hairColor}_${accessory}_${accessoryColor}`;
+  };
+
+  const previewId = getSerializedId();
+
+  return (
+    <div className="absolute inset-0 bg-slate-50 flex flex-col z-50">
+      {/* Header */}
+      <div className="bg-white px-4 py-3 border-b border-slate-100 flex items-center justify-between shrink-0">
+        <button
+          onClick={onBack}
+          className="w-9 h-9 rounded-full bg-slate-50 border border-slate-100 flex items-center justify-center text-slate-500 hover:text-slate-800 active:scale-90 transition-all cursor-pointer"
+        >
+          <ArrowLeft size={16} />
+        </button>
+        <h2 className="text-xs font-black text-slate-800 tracking-tight flex items-center gap-1.5 uppercase">
+          <Sparkles size={14} className="text-[#6C5CE7]" />
+          <span>Avatar Studio</span>
+        </h2>
+        <div className="w-9" /> {/* Spacer */}
+      </div>
+
+      <div className="flex-1 flex flex-col overflow-hidden">
+        {/* Live Preview Frame */}
+        <div className="bg-white py-6 border-b border-slate-100 flex flex-col items-center justify-center shrink-0 shadow-sm relative">
+          <div className="w-32 h-32 bg-[#F1F3F5] rounded-full flex items-center justify-center shadow-lg border-4 border-white p-2 relative">
+            <CustomizableAvatar id={previewId} className="w-full h-full" />
+            <span className="absolute bottom-0 right-0 bg-[#6C5CE7] text-white text-[8px] font-black px-2 py-0.5 rounded-full border-2 border-white shadow-sm">LIVE</span>
+          </div>
+          <span className="text-[10px] font-black text-slate-400 mt-3 tracking-wider uppercase">Your Unique Creation</span>
+        </div>
+
+        {/* Tab Selection Row */}
+        <div className="bg-white border-b border-slate-100 py-2 overflow-x-auto scrollbar-none flex gap-1.5 px-4 shrink-0">
+          {(
+            [
+              { id: 'expression', label: 'Face' },
+              { id: 'skin', label: 'Skin Color' },
+              { id: 'hairStyle', label: 'Hair Style' },
+              { id: 'hairColor', label: 'Hair Color' },
+              { id: 'accessory', label: 'Accessory' },
+              { id: 'accessoryColor', label: 'Acc. Color' }
+            ] as const
+          ).map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`px-3 py-1.5 rounded-full text-[10px] font-black whitespace-nowrap transition-all shrink-0 cursor-pointer ${
+                activeTab === tab.id
+                  ? 'bg-[#6C5CE7] text-white shadow-sm'
+                  : 'bg-slate-50 text-slate-500 hover:bg-slate-100'
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Option Selectors area */}
+        <div className="flex-1 overflow-y-auto p-4">
+          <motion.div
+            key={activeTab}
+            initial={{ opacity: 0, y: 5 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="space-y-4"
+          >
+            {/* 1. Face expressions options */}
+            {activeTab === 'expression' && (
+              <div className="grid grid-cols-2 gap-2.5">
+                {expressions.map((opt) => (
+                  <button
+                    key={opt.id}
+                    onClick={() => setExpression(opt.id)}
+                    className={`p-3 rounded-2xl border text-left flex items-center space-x-2.5 cursor-pointer transition-all ${
+                      expression === opt.id
+                        ? 'border-[#6C5CE7] bg-[#6C5CE7]/5 ring-2 ring-[#6C5CE7]/20 shadow-sm'
+                        : 'border-slate-100 bg-white hover:bg-slate-50'
+                    }`}
+                  >
+                    <span className="text-xl shrink-0">{opt.emoji}</span>
+                    <span className="text-[11px] font-bold text-slate-700">{opt.label}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* 2. Skin Color Options */}
+            {activeTab === 'skin' && (
+              <div className="grid grid-cols-4 gap-3">
+                {skinColors.map((opt) => (
+                  <button
+                    key={opt.value}
+                    onClick={() => setSkinColor(opt.value)}
+                    className={`aspect-square rounded-2xl flex flex-col items-center justify-center p-2 border cursor-pointer transition-all ${
+                      skinColor === opt.value
+                        ? 'border-[#6C5CE7] bg-[#6C5CE7]/5 scale-105 shadow-sm'
+                        : 'border-slate-100 bg-white hover:bg-slate-50'
+                    }`}
+                  >
+                    <div className="w-8 h-8 rounded-full shadow-inner border border-slate-200" style={{ backgroundColor: `#${opt.value}` }} />
+                    <span className="text-[9px] font-bold text-slate-500 mt-1.5">{opt.label}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* 3. Hair Styles options */}
+            {activeTab === 'hairStyle' && (
+              <div className="grid grid-cols-2 gap-2.5">
+                {hairStyles.map((opt) => (
+                  <button
+                    key={opt.id}
+                    onClick={() => setHairStyle(opt.id)}
+                    className={`p-3 rounded-2xl border text-left flex items-center space-x-2.5 cursor-pointer transition-all ${
+                      hairStyle === opt.id
+                        ? 'border-[#6C5CE7] bg-[#6C5CE7]/5 ring-2 ring-[#6C5CE7]/20 shadow-sm'
+                        : 'border-slate-100 bg-white hover:bg-slate-50'
+                    }`}
+                  >
+                    <span className="text-xl shrink-0">{opt.emoji}</span>
+                    <span className="text-[11px] font-bold text-slate-700">{opt.label}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* 4. Hair Colors Options */}
+            {activeTab === 'hairColor' && (
+              <div className="grid grid-cols-4 gap-3">
+                {hairColors.map((opt) => (
+                  <button
+                    key={opt.value}
+                    onClick={() => setHairColor(opt.value)}
+                    className={`aspect-square rounded-2xl flex flex-col items-center justify-center p-2 border cursor-pointer transition-all ${
+                      hairColor === opt.value
+                        ? 'border-[#6C5CE7] bg-[#6C5CE7]/5 scale-105 shadow-sm'
+                        : 'border-slate-100 bg-white hover:bg-slate-50'
+                    }`}
+                  >
+                    <div className="w-8 h-8 rounded-full shadow-inner border border-slate-200" style={{ backgroundColor: `#${opt.value}` }} />
+                    <span className="text-[9px] font-bold text-slate-500 mt-1.5">{opt.label}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* 5. Accessories Options */}
+            {activeTab === 'accessory' && (
+              <div className="grid grid-cols-2 gap-2.5">
+                {accessories.map((opt) => (
+                  <button
+                    key={opt.id}
+                    onClick={() => setAccessory(opt.id)}
+                    className={`p-3 rounded-2xl border text-left flex items-center space-x-2.5 cursor-pointer transition-all ${
+                      accessory === opt.id
+                        ? 'border-[#6C5CE7] bg-[#6C5CE7]/5 ring-2 ring-[#6C5CE7]/20 shadow-sm'
+                        : 'border-slate-100 bg-white hover:bg-slate-50'
+                    }`}
+                  >
+                    <span className="text-xl shrink-0">{opt.emoji}</span>
+                    <span className="text-[11px] font-bold text-slate-700">{opt.label}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* 6. Accessory Colors Options */}
+            {activeTab === 'accessoryColor' && (
+              <div className="grid grid-cols-4 gap-3">
+                {accessoryColors.map((opt) => (
+                  <button
+                    key={opt.value}
+                    onClick={() => setAccessoryColor(opt.value)}
+                    className={`aspect-square rounded-2xl flex flex-col items-center justify-center p-2 border cursor-pointer transition-all ${
+                      accessoryColor === opt.value
+                        ? 'border-[#6C5CE7] bg-[#6C5CE7]/5 scale-105 shadow-sm'
+                        : 'border-slate-100 bg-white hover:bg-slate-50'
+                    }`}
+                  >
+                    <div className="w-8 h-8 rounded-full shadow-inner border border-slate-200" style={{ backgroundColor: `#${opt.value}` }} />
+                    <span className="text-[9px] font-bold text-slate-500 mt-1.5">{opt.label}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </motion.div>
+        </div>
+      </div>
+
+      {/* Footer Apply Button */}
+      <div className="bg-white p-4 border-t border-slate-100 shrink-0">
+        <button
+          onClick={() => onSave(previewId)}
+          className="w-full bg-[#6C5CE7] hover:bg-[#5B4EC9] active:scale-98 text-white font-extrabold text-xs py-3.5 rounded-2xl shadow-md transition-all cursor-pointer flex items-center justify-center gap-1.5"
+        >
+          <Check size={14} />
+          <span>Save & Apply Custom Avatar</span>
+        </button>
+      </div>
+    </div>
+  );
 };
 
 // 4. THE INTERACTIVE AVATAR SELECTION SCREEN COMPONENT

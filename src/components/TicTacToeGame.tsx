@@ -665,6 +665,7 @@ export const TicTacToeGame: React.FC<TicTacToeGameProps> = ({
                     onClick={() => {
                       setActiveThemeId(t.id);
                       GameAudio.play('click', activeSound);
+                      setShowThemePicker(false);
                     }}
                     className={`p-2.5 rounded-xl border text-left flex flex-col justify-between transition-all cursor-pointer ${
                       activeThemeId === t.id

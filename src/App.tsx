@@ -62,6 +62,38 @@ export default function App() {
     }
   }, [toast.show]);
 
+  // Haptic feedback listener to shake the device chassis visually
+  const [vibrationClass, setVibrationClass] = useState('');
+
+  useEffect(() => {
+    const handleVibrate = (e: Event) => {
+      if (!settings.vibrationEnabled) return;
+      const customEvent = e as CustomEvent<{ intensity: 'light' | 'medium' | 'heavy' | 'tick' }>;
+      const intensity = customEvent.detail?.intensity || 'medium';
+      
+      const cls = `animate-vibrate-${intensity}`;
+      setVibrationClass('');
+      requestAnimationFrame(() => {
+        setVibrationClass(cls);
+      });
+    };
+
+    window.addEventListener('phone-vibrate', handleVibrate);
+    return () => {
+      window.removeEventListener('phone-vibrate', handleVibrate);
+    };
+  }, [settings.vibrationEnabled]);
+
+  useEffect(() => {
+    if (vibrationClass) {
+      const duration = vibrationClass.includes('heavy') ? 350 : vibrationClass.includes('medium') ? 250 : vibrationClass.includes('light') ? 150 : 80;
+      const timer = setTimeout(() => {
+        setVibrationClass('');
+      }, duration);
+      return () => clearTimeout(timer);
+    }
+  }, [vibrationClass]);
+
   return (
     <div
       id="app-root-container"
@@ -110,6 +142,7 @@ export default function App() {
             setNotifications={setNotifications}
             onShowNotificationBanner={triggerToast}
             theme={theme}
+            onToggleTheme={() => setTheme(t => t === 'dark' ? 'light' : 'dark')}
           />
         </div>
       </div>
