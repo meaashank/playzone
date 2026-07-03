@@ -38,7 +38,8 @@ export default function App() {
     vibrationEnabled: true,
     vibrationIntensity: 'medium',
     notificationsEnabled: true,
-    language: 'English'
+    language: 'English',
+    landscapeMode: false
   });
 
   // Toast banner state
@@ -128,7 +129,9 @@ export default function App() {
         )}
 
         {/* PlayZone Web App viewport */}
-        <div className="flex-1 relative overflow-hidden flex flex-col">
+        <div className={`flex-1 relative overflow-hidden flex flex-col transition-all duration-500 origin-center ${
+          settings.landscapeMode ? 'rotate-90 scale-95 md:scale-90' : ''
+        }`}>
           <InteractiveScreens
             currentScreen={currentScreen}
             setCurrentScreen={setCurrentScreen}

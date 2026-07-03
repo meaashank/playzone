@@ -124,6 +124,18 @@ export const InteractiveScreens: React.FC<ScreensProps> = ({
     setVibrateTestRipple(null);
   }, [settings.vibrationEnabled, settings.vibrationIntensity]);
 
+  const [transitioning, setTransitioning] = useState(false);
+
+  // Trigger brief screen transition loading state
+  useEffect(() => {
+    if (currentScreen === 'splash') return;
+    setTransitioning(true);
+    const timer = setTimeout(() => {
+      setTransitioning(false);
+    }, 450);
+    return () => clearTimeout(timer);
+  }, [currentScreen]);
+
   // Filter games based on search query & category
   const filteredGames = GAME_PLACEHOLDERS.filter((game) => {
     const matchesQuery = game.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -734,6 +746,32 @@ export const InteractiveScreens: React.FC<ScreensProps> = ({
                   className={`w-10 h-6 rounded-full p-0.5 transition-colors duration-200 cursor-pointer ${settings.musicEnabled ? 'bg-green-500' : isDark ? 'bg-slate-800' : 'bg-slate-200'}`}
                 >
                   <div className={`w-5 h-5 bg-white rounded-full shadow-md transform transition-transform duration-200 ${settings.musicEnabled ? 'translate-x-4' : 'translate-x-0'}`} />
+                </button>
+              </div>
+
+              {/* Simulated Landscape Mode Toggle */}
+              <div className={`p-3.5 flex items-center justify-between border-b ${isDark ? 'border-slate-800/60' : 'border-slate-50'}`}>
+                <div className="flex items-center space-x-3">
+                  <span className={`w-8 h-8 rounded-xl flex items-center justify-center ${isDark ? 'bg-indigo-950/40 text-indigo-400' : 'bg-indigo-50 text-indigo-500'}`}>
+                    <RefreshCw size={16} className={settings.landscapeMode ? 'animate-spin [animation-duration:3s]' : ''} />
+                  </span>
+                  <div className="text-left">
+                    <span className={`text-xs font-bold block ${isDark ? 'text-slate-200' : 'text-slate-700'}`}>Simulate Landscape</span>
+                    <span className={`text-[9px] text-slate-400 block leading-none mt-0.5`}>Rotate app screen 90°</span>
+                  </div>
+                </div>
+                <button
+                  onClick={() => {
+                    const nextMode = !settings.landscapeMode;
+                    setSettings(s => ({ ...s, landscapeMode: nextMode }));
+                    onShowNotificationBanner(
+                      'Screen Rotated',
+                      nextMode ? 'Switched to simulated landscape orientation 🔄' : 'Switched to simulated portrait orientation'
+                    );
+                  }}
+                  className={`w-10 h-6 rounded-full p-0.5 transition-colors duration-200 cursor-pointer ${settings.landscapeMode ? 'bg-green-500' : isDark ? 'bg-slate-800' : 'bg-slate-200'}`}
+                >
+                  <div className={`w-5 h-5 bg-white rounded-full shadow-md transform transition-transform duration-200 ${settings.landscapeMode ? 'translate-x-4' : 'translate-x-0'}`} />
                 </button>
               </div>
 
@@ -1540,6 +1578,62 @@ export const InteractiveScreens: React.FC<ScreensProps> = ({
   );
 };
 
+  // Render Skeleton Loading State for Screen Transitions
+  const renderSkeleton = () => {
+    const isDark = theme === 'dark';
+    return (
+      <div className={`absolute inset-0 flex flex-col p-4 space-y-6 select-none ${isDark ? 'bg-slate-950 text-slate-100' : 'bg-slate-50 text-slate-800'}`}>
+        {/* Skeleton Top Bar */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-3">
+            <div className={`w-10 h-10 rounded-full animate-pulse ${isDark ? 'bg-slate-800' : 'bg-slate-200'}`} />
+            <div className="space-y-2 text-left">
+              <div className={`h-3 w-20 rounded animate-pulse ${isDark ? 'bg-slate-800' : 'bg-slate-200'}`} />
+              <div className={`h-2.5 w-12 rounded animate-pulse ${isDark ? 'bg-slate-850' : 'bg-slate-150'}`} />
+            </div>
+          </div>
+          <div className="flex space-x-2">
+            <div className={`w-8 h-8 rounded-xl animate-pulse ${isDark ? 'bg-slate-800' : 'bg-slate-200'}`} />
+            <div className={`w-8 h-8 rounded-xl animate-pulse ${isDark ? 'bg-slate-800' : 'bg-slate-200'}`} />
+          </div>
+        </div>
+
+        {/* Skeleton Banner or Search area */}
+        <div className={`w-full h-32 rounded-[28px] animate-pulse flex flex-col justify-end p-4 space-y-2 ${isDark ? 'bg-slate-900/60' : 'bg-slate-200/60'}`}>
+          <div className={`h-4 w-1/3 rounded ${isDark ? 'bg-slate-800' : 'bg-slate-200'}`} />
+          <div className={`h-3 w-2/3 rounded ${isDark ? 'bg-slate-850' : 'bg-slate-150'}`} />
+        </div>
+
+        {/* Skeleton Grid Header */}
+        <div className="flex items-center justify-between">
+          <div className={`h-3.5 w-24 rounded animate-pulse ${isDark ? 'bg-slate-800' : 'bg-slate-200'}`} />
+          <div className={`h-3 w-12 rounded animate-pulse ${isDark ? 'bg-slate-850' : 'bg-slate-150'}`} />
+        </div>
+
+        {/* Skeleton Grid Cards (Adapts to desktop responsive layout) */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3.5 flex-1 overflow-hidden">
+          {[1, 2, 3, 4, 5, 6].map((idx) => (
+            <div
+              key={idx}
+              className={`border rounded-3xl p-3 flex flex-col justify-between aspect-square animate-pulse ${
+                isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-100'
+              }`}
+            >
+              <div className={`aspect-square w-full rounded-2xl mb-2 ${isDark ? 'bg-slate-950' : 'bg-slate-50'}`} />
+              <div className="space-y-1.5 text-left">
+                <div className={`h-2 w-10 rounded ${isDark ? 'bg-slate-850' : 'bg-slate-150'}`} />
+                <div className={`h-3 w-16 rounded ${isDark ? 'bg-slate-800' : 'bg-slate-200'}`} />
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Bottom Nav skeleton indicator */}
+        <div className="h-10 shrink-0" />
+      </div>
+    );
+  };
+
   // Switch statement for screens
   const screenContent = (() => {
     switch (currentScreen) {
@@ -1623,7 +1717,7 @@ export const InteractiveScreens: React.FC<ScreensProps> = ({
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
     >
-      {screenContent}
+      {transitioning ? renderSkeleton() : screenContent}
       {showAvatarSelector && (
         <AvatarSelectionScreen
           onBack={() => setShowAvatarSelector(false)}

@@ -33,6 +33,7 @@ export interface AppSettings {
   vibrationIntensity: 'light' | 'medium' | 'heavy' | 'tick';
   notificationsEnabled: boolean;
   language: string;
+  landscapeMode: boolean;
 }
 
 export interface UserProfile {
