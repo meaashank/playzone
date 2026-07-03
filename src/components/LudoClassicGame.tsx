@@ -49,7 +49,7 @@ class LudoAudio {
     return this.ctx;
   }
 
-  static play(type: 'click' | 'roll' | 'move' | 'capture' | 'release' | 'home' | 'win', enabled: boolean) {
+  static play(type: 'click' | 'roll' | 'move' | 'capture' | 'release' | 'home' | 'win' | 'starred' | 'dicetick', enabled: boolean) {
     if (!enabled) return;
     const ctx = this.getContext();
     if (!ctx) return;
@@ -72,19 +72,32 @@ class LudoAudio {
           break;
         }
         case 'roll': {
-          for (let i = 0; i < 6; i++) {
-            const tickTime = now + i * 0.05;
-            const osc = ctx.createOscillator();
-            const gain = ctx.createGain();
-            osc.connect(gain);
-            gain.connect(ctx.destination);
-            osc.type = 'triangle';
-            osc.frequency.setValueAtTime(200 + i * 100, tickTime);
-            gain.gain.setValueAtTime(0.06, tickTime);
-            gain.gain.linearRampToValueAtTime(0.01, tickTime + 0.04);
-            osc.start(tickTime);
-            osc.stop(tickTime + 0.04);
-          }
+          // Play a rolling shuffle sound - a low frequency triangle wave that modulates slightly
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(120, now);
+          osc.frequency.linearRampToValueAtTime(180, now + 0.3);
+          gain.gain.setValueAtTime(0.08, now);
+          gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+          osc.start(now);
+          osc.stop(now + 0.3);
+          break;
+        }
+        case 'dicetick': {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(400 + Math.random() * 200, now);
+          osc.frequency.exponentialRampToValueAtTime(80, now + 0.04);
+          gain.gain.setValueAtTime(0.05, now);
+          gain.gain.linearRampToValueAtTime(0.001, now + 0.04);
+          osc.start(now);
+          osc.stop(now + 0.04);
           break;
         }
         case 'move': {
@@ -129,6 +142,22 @@ class LudoAudio {
           gain.gain.linearRampToValueAtTime(0.01, now + 0.35);
           osc.start(now);
           osc.stop(now + 0.35);
+          break;
+        }
+        case 'starred': {
+          const notes = [392.00, 523.25, 659.25, 783.99]; // G4, C5, E5, G5 (uplifting upward arpeggio)
+          notes.forEach((freq, i) => {
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(freq, now + i * 0.05);
+            gain.gain.setValueAtTime(0.08, now + i * 0.05);
+            gain.gain.linearRampToValueAtTime(0.01, now + i * 0.05 + 0.15);
+            osc.start(now + i * 0.05);
+            osc.stop(now + i * 0.05 + 0.15);
+          });
           break;
         }
         case 'home': {
@@ -517,7 +546,7 @@ export const LudoClassicGame: React.FC<LudoClassicGameProps> = ({
   }[setupMode];
 
   // Play Sound helper
-  const playSound = (type: 'click' | 'roll' | 'move' | 'capture' | 'release' | 'home' | 'win') => {
+  const playSound = (type: 'click' | 'roll' | 'move' | 'capture' | 'release' | 'home' | 'win' | 'starred' | 'dicetick') => {
     LudoAudio.play(type, soundOn);
   };
 
@@ -669,19 +698,29 @@ export const LudoClassicGame: React.FC<LudoClassicGameProps> = ({
     playSound('roll');
     triggerVibration('tick');
 
-    // Simulated dice rolling intervals
+    // High fidelity dice rolling intervals: 12 frames over 600ms (50ms interval)
     let rollingCount = 0;
+    const maxRolls = 12;
     const interval = setInterval(() => {
-      setDiceValue(Math.floor(Math.random() * 6) + 1);
+      // Frame-by-frame sprite/face switching: random 1 to 6 values
+      const tempVal = Math.floor(Math.random() * 6) + 1;
+      setDiceValue(tempVal);
+      
+      // Synchronized audio triggers from sound manager on each face switch
+      playSound('dicetick');
+      triggerVibration('tick');
+      
       rollingCount++;
-      if (rollingCount > 8) {
+      if (rollingCount >= maxRolls) {
         clearInterval(interval);
+        // Settle on the final rolled value
         const finalVal = Math.floor(Math.random() * 6) + 1;
         setDiceValue(finalVal);
         setIsRolling(false);
+        playSound('click'); // physical settling click sound
         handlePostRoll(finalVal);
       }
-    }, 60);
+    }, 50);
   };
 
   // Handles Game Mechanics after Dice Roll
@@ -893,6 +932,13 @@ export const LudoClassicGame: React.FC<LudoClassicGameProps> = ({
           addLog(`🪙 Awarded ${coinReward} bonus stars!`);
         }
       }
+    }
+
+    // 1.5. Check Safe Zone landing (for star sound)
+    if (stepLanded > 0 && stepLanded < 57 && SAFE_COORDS.includes(cellKey)) {
+      playSound('starred');
+      triggerVibration('light');
+      addLog(`⭐ Safe zone! ${name}'s token is protected.`);
     }
 
     // 2. Check Capture (if not on safe cells)
@@ -1132,7 +1178,7 @@ export const LudoClassicGame: React.FC<LudoClassicGameProps> = ({
 
       {/* RENDER VIEW: SETUP SCREEN VS PLAYING arena */}
       {!isPlaying ? (
-        <div id="ludo-setup-screen" className="flex-1 overflow-y-auto px-4 py-4 space-y-5">
+        <div id="ludo-setup-screen" className="flex-1 overflow-y-auto px-4 py-4 space-y-5 max-w-2xl mx-auto w-full">
           
           {/* Hero Header Row mimicking the screenshot */}
           <div className="flex items-center justify-between gap-4 py-3 px-1">
@@ -1350,125 +1396,201 @@ export const LudoClassicGame: React.FC<LudoClassicGameProps> = ({
         </div>
       ) : (
         /* PLAYING ARENA VIEW */
-        <div id="ludo-arena-view" className="flex-1 flex flex-col overflow-hidden">
+        <div id="ludo-arena-view" className="flex-1 flex flex-col overflow-hidden max-w-4xl mx-auto w-full">
           
           {/* HEADER STATUS: PULSING ACTIVE TURN */}
-          <div className="px-4 py-2 flex items-center justify-between shrink-0 transition-colors" style={{ backgroundColor: `${activeColorTheme.hex}15` }}>
-            <div className="flex items-center space-x-2">
-              {/* Spinning color indicator */}
-              <span className="w-3.5 h-3.5 rounded-full border border-white/20 animate-pulse shrink-0" style={{ backgroundColor: activeColorTheme.hex, boxShadow: `0 0 8px ${activeColorTheme.hex}aa` }} />
-              <div className="text-left">
-                <span className="text-[10px] font-black uppercase tracking-wider block" style={{ color: activeColorTheme.hex }}>
-                  {colorLabels[currentActiveColor]} Turn
-                </span>
-                <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 leading-none">
-                  {isCurrentBot ? 'AI Bot calculating...' : 'Roll or select a token!'}
+          <div className="px-4 py-2 shrink-0">
+            <div 
+              className="bg-white/70 dark:bg-slate-900/70 border border-slate-200/50 dark:border-slate-800/50 shadow-[0_8px_20px_rgba(0,0,0,0.03)] rounded-[24px] p-3 flex items-center justify-between"
+              style={{
+                background: isDark ? 'rgba(15, 23, 42, 0.7)' : 'rgba(255, 255, 255, 0.75)',
+                backdropFilter: 'blur(10px)',
+                borderColor: `${activeColorTheme.hex}20`
+              }}
+            >
+              <div className="flex items-center pl-1">
+                {/* 3D Shiny Sphere */}
+                <div 
+                  className="w-10 h-10 rounded-full shrink-0 relative shadow-inner"
+                  style={{
+                    background: `radial-gradient(circle at 35% 35%, #ffffff 0%, ${activeColorTheme.hex} 40%, ${activeColorTheme.hex}dd 75%, #000000 100%)`,
+                    boxShadow: `0 4px 10px ${activeColorTheme.hex}40, inset 0 2px 4px rgba(255,255,255,0.4)`
+                  }}
+                />
+                
+                <div className="text-left pl-3 flex flex-col justify-center">
+                  <span className="text-[11px] font-black uppercase tracking-[0.06em] leading-tight block" style={{ color: activeColorTheme.hex }}>
+                    {colorLabels[currentActiveColor]} {playerTypes[currentActiveColor] === 'human' ? '(YOU)' : '(BOT)'} TURN
+                  </span>
+                  
+                  {/* Faded dots matching mockup */}
+                  <div className="flex gap-1.5 mt-1.5">
+                    <span className="w-2.5 h-2.5 rounded-full shadow-[inset_0_1px_1px_rgba(0,0,0,0.2)]" style={{ backgroundColor: activeColorTheme.hex }} />
+                    <span className="w-2.5 h-2.5 rounded-full shadow-[inset_0_1px_1px_rgba(0,0,0,0.1)] opacity-25" style={{ backgroundColor: activeColorTheme.hex }} />
+                    <span className="w-2.5 h-2.5 rounded-full shadow-[inset_0_1px_1px_rgba(0,0,0,0.1)] opacity-25" style={{ backgroundColor: activeColorTheme.hex }} />
+                    <span className="w-2.5 h-2.5 rounded-full shadow-[inset_0_1px_1px_rgba(0,0,0,0.1)] opacity-25" style={{ backgroundColor: activeColorTheme.hex }} />
+                  </div>
+                </div>
+              </div>
+
+              {/* Right Side Dice Box Container */}
+              <div 
+                className="flex items-center gap-2.5 px-3 py-1.5 rounded-2xl shadow-md border text-white transition-all select-none"
+                style={{
+                  background: `linear-gradient(135deg, ${activeColorTheme.hex}, ${activeColorTheme.hex}dd)`,
+                  boxShadow: `0 4px 12px ${activeColorTheme.hex}30, inset 0 1px 2px rgba(255,255,255,0.35)`,
+                  borderColor: `${activeColorTheme.hex}20`
+                }}
+              >
+                {/* Mini White Dice Face */}
+                <div className="grid grid-cols-3 gap-0.5 w-7 h-7 p-1 bg-white rounded-md shadow-inner">
+                  {(() => {
+                    const activeDots = {
+                      1: [4],
+                      2: [0, 8],
+                      3: [0, 4, 8],
+                      4: [0, 2, 6, 8],
+                      5: [0, 2, 4, 6, 8],
+                      6: [0, 2, 3, 5, 6, 8]
+                    }[diceValue] || [];
+                    return Array.from({ length: 9 }).map((_, idx) => {
+                      const isActive = activeDots.includes(idx);
+                      return (
+                        <div key={idx} className="flex items-center justify-center">
+                          {isActive && (
+                            <div 
+                              className="w-1.5 h-1.5 rounded-full"
+                              style={{ backgroundColor: activeColorTheme.hex }}
+                            />
+                          )}
+                        </div>
+                      );
+                    });
+                  })()}
+                </div>
+                {/* Giant value next to dice */}
+                <span className="text-[20px] font-black font-sans leading-none pr-1">
+                  {diceValue}
                 </span>
               </div>
-            </div>
-
-            {/* Roll History shortcut preview */}
-            <div className="flex items-center space-x-1.5 text-[10px] font-black font-mono">
-              <span className="text-slate-400 uppercase">Dice:</span>
-              <span className="px-2 py-0.5 rounded-md font-extrabold text-white" style={{ backgroundColor: activeColorTheme.hex }}>
-                {diceValue}
-              </span>
             </div>
           </div>
 
           {/* MAIN INTERACTIVE LUDO BOARD SCENE */}
-          <div className="flex-1 flex items-center justify-center p-2.5 overflow-hidden">
-            <div className="w-full max-w-[340px] aspect-square relative bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-850 rounded-3xl p-1 shadow-md">
+          <div className="flex-1 flex items-center justify-center p-3 overflow-hidden">
+            {/* Outer 3D clay-looking board container */}
+            <div className="w-full max-w-[360px] md:max-w-[560px] aspect-square relative bg-[#f7f5ee] dark:bg-slate-900 border-[6px] border-[#efede6] dark:border-slate-800 rounded-[36px] p-2 shadow-[0_16px_36px_rgba(0,0,0,0.12),0_4px_12px_rgba(0,0,0,0.08),inset_0_-4px_6px_rgba(0,0,0,0.06)] flex items-center justify-center">
               
               {/* GRID BOARD CONTAINER */}
-              <div className="w-full h-full grid grid-cols-15 grid-rows-15 rounded-2xl overflow-hidden relative select-none bg-slate-50 dark:bg-slate-950 p-[1px]">
+              <div className="w-full h-full grid grid-cols-15 grid-rows-15 rounded-[26px] overflow-hidden relative select-none bg-[#fcfbfa] dark:bg-slate-950 p-[1.5px] shadow-[inset_0_2px_8px_rgba(0,0,0,0.05)] border border-slate-200/40 dark:border-slate-800/40">
                 
                 {/* 1. RED BASE (Row 0-5, Col 0-5) */}
                 <div 
-                  className={`m-[3px] rounded-2xl p-1 relative flex items-center justify-center transition-all duration-300 ${
+                  className={`m-[3px] rounded-[24px] p-1 relative flex items-center justify-center transition-all duration-300 border-[4px] shadow-[0_4px_8px_rgba(0,0,0,0.04)] ${
                     currentActiveColor === 'red' 
-                      ? activeTheme.red.active 
-                      : activeTheme.red.base
+                      ? 'border-red-500 bg-red-500/10' 
+                      : 'border-red-500/40 bg-red-500/5'
                   }`} 
                   style={{ gridRow: '1 / 7', gridColumn: '1 / 7' }}
                 >
-                  <div className="w-full h-full bg-white dark:bg-slate-900 rounded-xl p-2 flex flex-row items-center justify-center gap-2 relative shadow-inner">
-                    {/* Harbor Ports - Horizontal line in center */}
-                    <div className="w-4 h-4 rounded-full bg-slate-50 dark:bg-slate-950 border-2 shadow-inner transition-colors" style={{ borderColor: `${activeTheme.red.hex}40` }} />
-                    <div className="w-4 h-4 rounded-full bg-slate-50 dark:bg-slate-950 border-2 shadow-inner transition-colors" style={{ borderColor: `${activeTheme.red.hex}40` }} />
-                    <div className="w-4 h-4 rounded-full bg-slate-50 dark:bg-slate-950 border-2 shadow-inner transition-colors" style={{ borderColor: `${activeTheme.red.hex}40` }} />
-                    <div className="w-4 h-4 rounded-full bg-slate-50 dark:bg-slate-950 border-2 shadow-inner transition-colors" style={{ borderColor: `${activeTheme.red.hex}40` }} />
+                  <div className="w-full h-full bg-[#faf8f4] dark:bg-slate-900/60 rounded-[18px] p-3 grid grid-cols-2 grid-rows-2 gap-4 items-center justify-items-center relative shadow-[inset_0_3px_6px_rgba(0,0,0,0.05)]">
+                    <div className="w-10 h-10 rounded-full bg-slate-100/60 dark:bg-slate-950/40 border border-slate-200/50 dark:border-slate-850 shadow-[inset_0_2px_4px_rgba(0,0,0,0.08)] flex items-center justify-center" />
+                    <div className="w-10 h-10 rounded-full bg-slate-100/60 dark:bg-slate-950/40 border border-slate-200/50 dark:border-slate-850 shadow-[inset_0_2px_4px_rgba(0,0,0,0.08)] flex items-center justify-center" />
+                    <div className="w-10 h-10 rounded-full bg-slate-100/60 dark:bg-slate-950/40 border border-slate-200/50 dark:border-slate-850 shadow-[inset_0_2px_4px_rgba(0,0,0,0.08)] flex items-center justify-center" />
+                    <div className="w-10 h-10 rounded-full bg-slate-100/60 dark:bg-slate-950/40 border border-slate-200/50 dark:border-slate-850 shadow-[inset_0_2px_4px_rgba(0,0,0,0.08)] flex items-center justify-center" />
                   </div>
                 </div>
 
                 {/* 2. GREEN BASE (Row 0-5, Col 9-14) */}
                 <div 
-                  className={`m-[3px] rounded-2xl p-1 relative flex items-center justify-center transition-all duration-300 ${
+                  className={`m-[3px] rounded-[24px] p-1 relative flex items-center justify-center transition-all duration-300 border-[4px] shadow-[0_4px_8px_rgba(0,0,0,0.04)] ${
                     currentActiveColor === 'green' 
-                      ? activeTheme.green.active 
-                      : activeTheme.green.base
+                      ? 'border-emerald-500 bg-emerald-500/10' 
+                      : 'border-emerald-500/40 bg-emerald-500/5'
                   }`} 
                   style={{ gridRow: '1 / 7', gridColumn: '10 / 16' }}
                 >
-                  <div className="w-full h-full bg-white dark:bg-slate-900 rounded-xl p-2 flex flex-row items-center justify-center gap-2 relative shadow-inner">
-                    {/* Harbor Ports - Horizontal line in center */}
-                    <div className="w-4 h-4 rounded-full bg-slate-50 dark:bg-slate-950 border-2 shadow-inner transition-colors" style={{ borderColor: `${activeTheme.green.hex}40` }} />
-                    <div className="w-4 h-4 rounded-full bg-slate-50 dark:bg-slate-950 border-2 shadow-inner transition-colors" style={{ borderColor: `${activeTheme.green.hex}40` }} />
-                    <div className="w-4 h-4 rounded-full bg-slate-50 dark:bg-slate-950 border-2 shadow-inner transition-colors" style={{ borderColor: `${activeTheme.green.hex}40` }} />
-                    <div className="w-4 h-4 rounded-full bg-slate-50 dark:bg-slate-950 border-2 shadow-inner transition-colors" style={{ borderColor: `${activeTheme.green.hex}40` }} />
+                  <div className="w-full h-full bg-[#faf8f4] dark:bg-slate-900/60 rounded-[18px] p-3 grid grid-cols-2 grid-rows-2 gap-4 items-center justify-items-center relative shadow-[inset_0_3px_6px_rgba(0,0,0,0.05)]">
+                    <div className="w-10 h-10 rounded-full bg-slate-100/60 dark:bg-slate-950/40 border border-slate-200/50 dark:border-slate-850 shadow-[inset_0_2px_4px_rgba(0,0,0,0.08)] flex items-center justify-center" />
+                    <div className="w-10 h-10 rounded-full bg-slate-100/60 dark:bg-slate-950/40 border border-slate-200/50 dark:border-slate-850 shadow-[inset_0_2px_4px_rgba(0,0,0,0.08)] flex items-center justify-center" />
+                    <div className="w-10 h-10 rounded-full bg-slate-100/60 dark:bg-slate-950/40 border border-slate-200/50 dark:border-slate-850 shadow-[inset_0_2px_4px_rgba(0,0,0,0.08)] flex items-center justify-center" />
+                    <div className="w-10 h-10 rounded-full bg-slate-100/60 dark:bg-slate-950/40 border border-slate-200/50 dark:border-slate-850 shadow-[inset_0_2px_4px_rgba(0,0,0,0.08)] flex items-center justify-center" />
                   </div>
                 </div>
 
                 {/* 3. YELLOW BASE (Row 9-14, Col 9-14) */}
                 <div 
-                  className={`m-[3px] rounded-2xl p-1 relative flex items-center justify-center transition-all duration-300 ${
+                  className={`m-[3px] rounded-[24px] p-1 relative flex items-center justify-center transition-all duration-300 border-[4px] shadow-[0_4px_8px_rgba(0,0,0,0.04)] ${
                     currentActiveColor === 'yellow' 
-                      ? activeTheme.yellow.active 
-                      : activeTheme.yellow.base
+                      ? 'border-yellow-400 bg-yellow-400/10' 
+                      : 'border-yellow-400/40 bg-yellow-400/5'
                   }`} 
                   style={{ gridRow: '10 / 16', gridColumn: '10 / 16' }}
                 >
-                  <div className="w-full h-full bg-white dark:bg-slate-900 rounded-xl p-2 flex flex-row items-center justify-center gap-2 relative shadow-inner">
-                    {/* Harbor Ports - Horizontal line in center */}
-                    <div className="w-4 h-4 rounded-full bg-slate-50 dark:bg-slate-950 border-2 shadow-inner transition-colors" style={{ borderColor: `${activeTheme.yellow.hex}40` }} />
-                    <div className="w-4 h-4 rounded-full bg-slate-50 dark:bg-slate-950 border-2 shadow-inner transition-colors" style={{ borderColor: `${activeTheme.yellow.hex}40` }} />
-                    <div className="w-4 h-4 rounded-full bg-slate-50 dark:bg-slate-950 border-2 shadow-inner transition-colors" style={{ borderColor: `${activeTheme.yellow.hex}40` }} />
-                    <div className="w-4 h-4 rounded-full bg-slate-50 dark:bg-slate-950 border-2 shadow-inner transition-colors" style={{ borderColor: `${activeTheme.yellow.hex}40` }} />
+                  <div className="w-full h-full bg-[#faf8f4] dark:bg-slate-900/60 rounded-[18px] p-3 grid grid-cols-2 grid-rows-2 gap-4 items-center justify-items-center relative shadow-[inset_0_3px_6px_rgba(0,0,0,0.05)]">
+                    <div className="w-10 h-10 rounded-full bg-slate-100/60 dark:bg-slate-950/40 border border-slate-200/50 dark:border-slate-850 shadow-[inset_0_2px_4px_rgba(0,0,0,0.08)] flex items-center justify-center" />
+                    <div className="w-10 h-10 rounded-full bg-slate-100/60 dark:bg-slate-950/40 border border-slate-200/50 dark:border-slate-850 shadow-[inset_0_2px_4px_rgba(0,0,0,0.08)] flex items-center justify-center" />
+                    <div className="w-10 h-10 rounded-full bg-slate-100/60 dark:bg-slate-950/40 border border-slate-200/50 dark:border-slate-850 shadow-[inset_0_2px_4px_rgba(0,0,0,0.08)] flex items-center justify-center" />
+                    <div className="w-10 h-10 rounded-full bg-slate-100/60 dark:bg-slate-950/40 border border-slate-200/50 dark:border-slate-850 shadow-[inset_0_2px_4px_rgba(0,0,0,0.08)] flex items-center justify-center" />
                   </div>
                 </div>
 
                 {/* 4. BLUE BASE (Row 9-14, Col 0-5) */}
                 <div 
-                  className={`m-[3px] rounded-2xl p-1 relative flex items-center justify-center transition-all duration-300 ${
+                  className={`m-[3px] rounded-[24px] p-1 relative flex items-center justify-center transition-all duration-300 border-[4px] shadow-[0_4px_8px_rgba(0,0,0,0.04)] ${
                     currentActiveColor === 'blue' 
-                      ? activeTheme.blue.active 
-                      : activeTheme.blue.base
+                      ? 'border-blue-500 bg-blue-500/10' 
+                      : 'border-blue-500/40 bg-blue-500/5'
                   }`} 
                   style={{ gridRow: '10 / 16', gridColumn: '1 / 7' }}
                 >
-                  <div className="w-full h-full bg-white dark:bg-slate-900 rounded-xl p-2 flex flex-row items-center justify-center gap-2 relative shadow-inner">
-                    {/* Harbor Ports - Horizontal line in center */}
-                    <div className="w-4 h-4 rounded-full bg-slate-50 dark:bg-slate-950 border-2 shadow-inner transition-colors" style={{ borderColor: `${activeTheme.blue.hex}40` }} />
-                    <div className="w-4 h-4 rounded-full bg-slate-50 dark:bg-slate-950 border-2 shadow-inner transition-colors" style={{ borderColor: `${activeTheme.blue.hex}40` }} />
-                    <div className="w-4 h-4 rounded-full bg-slate-50 dark:bg-slate-950 border-2 shadow-inner transition-colors" style={{ borderColor: `${activeTheme.blue.hex}40` }} />
-                    <div className="w-4 h-4 rounded-full bg-slate-50 dark:bg-slate-950 border-2 shadow-inner transition-colors" style={{ borderColor: `${activeTheme.blue.hex}40` }} />
+                  <div className="w-full h-full bg-[#faf8f4] dark:bg-slate-900/60 rounded-[18px] p-3 grid grid-cols-2 grid-rows-2 gap-4 items-center justify-items-center relative shadow-[inset_0_3px_6px_rgba(0,0,0,0.05)]">
+                    <div className="w-10 h-10 rounded-full bg-slate-100/60 dark:bg-slate-950/40 border border-slate-200/50 dark:border-slate-850 shadow-[inset_0_2px_4px_rgba(0,0,0,0.08)] flex items-center justify-center" />
+                    <div className="w-10 h-10 rounded-full bg-slate-100/60 dark:bg-slate-950/40 border border-slate-200/50 dark:border-slate-850 shadow-[inset_0_2px_4px_rgba(0,0,0,0.08)] flex items-center justify-center" />
+                    <div className="w-10 h-10 rounded-full bg-slate-100/60 dark:bg-slate-950/40 border border-slate-200/50 dark:border-slate-850 shadow-[inset_0_2px_4px_rgba(0,0,0,0.08)] flex items-center justify-center" />
+                    <div className="w-10 h-10 rounded-full bg-slate-100/60 dark:bg-slate-950/40 border border-slate-200/50 dark:border-slate-850 shadow-[inset_0_2px_4px_rgba(0,0,0,0.08)] flex items-center justify-center" />
                   </div>
                 </div>
 
                 {/* 5. CENTER GOAL TRIANGLES (Row 6-8, Col 6-8) */}
-                <div className="m-[3px] rounded-2xl bg-slate-100 dark:bg-slate-800 relative shadow-md overflow-hidden flex items-center justify-center" style={{ gridRow: '7 / 10', gridColumn: '7 / 10' }}>
-                  {/* Triangular Split Overlay using precise SVG */}
+                <div className="m-[3px] rounded-[18px] bg-slate-100 dark:bg-slate-850 relative shadow-lg overflow-hidden flex items-center justify-center border border-slate-200/50 dark:border-slate-800/50" style={{ gridRow: '7 / 10', gridColumn: '7 / 10' }}>
+                  {/* Triangular Split Overlay using precise SVG and gradients */}
                   <svg viewBox="0 0 100 100" className="absolute inset-0 w-full h-full">
-                    <polygon points="0,0 50,50 0,100" fill={activeTheme.red.hex} opacity="0.9" /> {/* Red left */}
-                    <polygon points="0,0 50,50 100,0" fill={activeTheme.green.hex} opacity="0.9" /> {/* Green top */}
-                    <polygon points="100,0 50,50 100,100" fill={activeTheme.yellow.hex} opacity="0.9" /> {/* Yellow right */}
-                    <polygon points="0,100 50,50 100,100" fill={activeTheme.blue.hex} opacity="0.9" /> {/* Blue bottom */}
-                    {/* Inner gold center ring */}
-                    <circle cx="50" cy="50" r="14" fill="#FFD700" className="animate-pulse" />
-                    <polygon points="46,42 54,42 50,34" fill={activeTheme.green.hex} />
-                    <polygon points="58,46 58,54 66,50" fill={activeTheme.yellow.hex} />
-                    <polygon points="46,58 54,58 50,66" fill={activeTheme.blue.hex} />
-                    <polygon points="42,46 42,54 34,50" fill={activeTheme.red.hex} />
+                    <defs>
+                      <linearGradient id="centerRedGrad" x1="0%" y1="50%" x2="100%" y2="50%">
+                        <stop offset="0%" stopColor="#ff5e62" />
+                        <stop offset="100%" stopColor="#e71d36" />
+                      </linearGradient>
+                      <linearGradient id="centerGreenGrad" x1="50%" y1="0%" x2="50%" y2="100%">
+                        <stop offset="0%" stopColor="#2ecc71" />
+                        <stop offset="100%" stopColor="#10b981" />
+                      </linearGradient>
+                      <linearGradient id="centerYellowGrad" x1="100%" y1="50%" x2="0%" y2="50%">
+                        <stop offset="0%" stopColor="#ffe259" />
+                        <stop offset="100%" stopColor="#ffa751" />
+                      </linearGradient>
+                      <linearGradient id="centerBlueGrad" x1="50%" y1="100%" x2="50%" y2="0%">
+                        <stop offset="0%" stopColor="#36d1dc" />
+                        <stop offset="100%" stopColor="#5b86e5" />
+                      </linearGradient>
+                      <linearGradient id="glossOver" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" stopColor="#ffffff" stopOpacity="0.4" />
+                        <stop offset="50%" stopColor="#ffffff" stopOpacity="0.0" />
+                        <stop offset="100%" stopColor="#000000" stopOpacity="0.15" />
+                      </linearGradient>
+                    </defs>
+                    <polygon points="0,0 50,50 0,100" fill="url(#centerRedGrad)" /> {/* Red left */}
+                    <polygon points="0,0 50,50 100,0" fill="url(#centerGreenGrad)" /> {/* Green top */}
+                    <polygon points="100,0 50,50 100,100" fill="url(#centerYellowGrad)" /> {/* Yellow right */}
+                    <polygon points="0,100 50,50 100,100" fill="url(#centerBlueGrad)" /> {/* Blue bottom */}
+                    
+                    {/* Sheen glass effect on center */}
+                    <rect width="100" height="100" fill="url(#glossOver)" pointerEvents="none" />
+                    
+                    {/* Center joint plastic outline */}
+                    <circle cx="50" cy="50" r="13" fill="#ffffff" className="shadow-md" />
+                    <circle cx="50" cy="50" r="9" fill="#ffd700" className="animate-pulse" />
+                    <circle cx="50" cy="50" r="4" fill="#ffffff" />
                   </svg>
                 </div>
 
@@ -1530,10 +1652,14 @@ export const LudoClassicGame: React.FC<LudoClassicGameProps> = ({
                     return (
                       <div
                         key={`cell-${r}-${c}`}
-                        className={`rounded-[5.5px] m-[1px] text-[6px] flex items-center justify-center font-bold text-slate-400 relative transition-all ${cellBg}`}
+                        className={`rounded-[7px] m-[1.5px] text-[6px] flex items-center justify-center font-bold relative transition-all duration-300 shadow-[inset_0_1.5px_2.5px_rgba(0,0,0,0.03)] border border-slate-200/25 dark:border-slate-800/10 ${cellBg}`}
                         style={{ gridRow: r + 1, gridColumn: c + 1 }}
                       >
-                        {hasStar && <Star size={10} className="text-amber-500 fill-amber-500" />}
+                        {hasStar && (
+                          <div className="absolute inset-0 flex items-center justify-center bg-amber-500/10 dark:bg-amber-400/10 rounded-[6px]">
+                            <Star size={11} className="text-amber-500 fill-amber-400 filter drop-shadow-[0_1px_1.5px_rgba(245,158,11,0.45)]" />
+                          </div>
+                        )}
                       </div>
                     );
                   });
@@ -1576,10 +1702,28 @@ export const LudoClassicGame: React.FC<LudoClassicGameProps> = ({
 
                   const canThisMove = isMyTurn && hasRolled && playables.includes(index) && !isCurrentBot;
 
-                  // Token Styling class
+                  // Precise 3D colors for realistic glass/claymorphic tokens
                   const colorKey = color as 'red' | 'green' | 'yellow' | 'blue';
-                  const tokenBg = activeTheme[colorKey].token;
-                  const ringColor = color === 'yellow' ? 'border-slate-800' : 'border-white';
+                  const hexColor = {
+                    red: '#ef4444',
+                    green: '#10b981',
+                    yellow: '#eab308',
+                    blue: '#3b82f6',
+                  }[colorKey];
+
+                  const highlightColor = {
+                    red: '#fca5a5',
+                    green: '#6ee7b7',
+                    yellow: '#fde047',
+                    blue: '#93c5fd',
+                  }[colorKey];
+
+                  const darkGradientColor = {
+                    red: '#991b1b',
+                    green: '#065f46',
+                    yellow: '#854d0e',
+                    blue: '#1e40af',
+                  }[colorKey];
 
                   return (
                     <motion.div
@@ -1590,25 +1734,32 @@ export const LudoClassicGame: React.FC<LudoClassicGameProps> = ({
                           moveToken(color, index, diceValue);
                         }
                       }}
-                      className={`absolute rounded-full border-2 ${ringColor} flex items-center justify-center font-bold text-[9px] shadow-md z-20 cursor-pointer ${tokenBg} ${
-                        canThisMove ? 'ring-4 ring-indigo-500/80 animate-bounce cursor-pointer [animation-duration:0.6s]' : ''
+                      className={`absolute rounded-full z-20 flex items-center justify-center cursor-pointer ${
+                        canThisMove ? 'ring-[3px] ring-indigo-500 animate-bounce cursor-pointer [animation-duration:0.6s]' : ''
                       }`}
                       style={{
-                        width: '6.6666%',
-                        height: '6.6666%',
-                        left: `${leftBase + dx}%`,
-                        top: `${topBase + dy}%`,
+                        width: '6.2%',
+                        height: '6.2%',
+                        left: `${leftBase + dx + 0.23}%`,
+                        top: `${topBase + dy + 0.23}%`,
+                        background: `radial-gradient(circle at 35% 35%, ${highlightColor} 0%, ${hexColor} 50%, ${darkGradientColor} 100%)`,
+                        boxShadow: `0 4px 6px rgba(0,0,0,0.3), inset 0 2px 3px rgba(255,255,255,0.65), inset 0 -2px 3px rgba(0,0,0,0.4)`
                       }}
                       animate={{
-                        scale: canThisMove ? 1.15 : scale,
+                        scale: canThisMove ? 1.25 : scale,
                       }}
                       transition={{ type: 'spring', stiffness: 220, damping: 18 }}
                     >
-                      {/* Inner token details */}
+                      {/* Realistic glossy sheen ring */}
+                      <div className="absolute inset-[1.5px] rounded-full border border-white/40 pointer-events-none" />
+                      
+                      {/* Core circle */}
                       {step === 57 ? (
-                        <span className="text-[7px] font-black pointer-events-none">👑</span>
+                        <span className="text-[7.5px] font-black pointer-events-none drop-shadow">👑</span>
                       ) : (
-                        <div className={`w-1.5 h-1.5 rounded-full ${color === 'yellow' ? 'bg-slate-850' : 'bg-white'} opacity-90 shadow-sm pointer-events-none`} />
+                        <div className="w-2.5 h-2.5 rounded-full bg-white/95 shadow-sm pointer-events-none flex items-center justify-center">
+                          <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: hexColor }} />
+                        </div>
                       )}
                     </motion.div>
                   );
@@ -1623,51 +1774,65 @@ export const LudoClassicGame: React.FC<LudoClassicGameProps> = ({
             
             {/* Perfectly Centered Interactive Dice */}
             <div className="flex flex-col items-center justify-center space-y-2">
-              <button
+              <motion.button
                 disabled={isRolling || hasRolled || isCurrentBot}
                 onClick={rollDice}
-                className={`relative w-20 h-20 rounded-[24px] flex items-center justify-center transition-all cursor-pointer ${
-                  isRolling ? 'scale-90 animate-pulse' : 'hover:scale-105 active:scale-95'
-                }`}
+                className="relative w-20 h-20 rounded-[24px] flex items-center justify-center transition-all cursor-pointer overflow-visible"
                 style={{
                   background: `linear-gradient(135deg, ${activeColorTheme.hex}, ${activeColorTheme.hex}dd)`,
                   boxShadow: `0 8px 24px ${activeColorTheme.hex}50, inset 0 2px 4px rgba(255,255,255,0.25)`,
                   border: `3px solid ${activeColorTheme.hex}25`,
                 }}
+                animate={isRolling ? { 
+                  rotate: [0, 90, -180, 270, 360], 
+                  x: [0, -12, 14, -8, 10, -5, 0], 
+                  y: [0, -15, 12, -18, 8, -6, 0], 
+                  scale: [1, 1.15, 0.88, 1.12, 0.95, 1.05, 1] 
+                } : {}}
+                transition={isRolling ? { duration: 0.6, ease: "easeInOut" } : { type: "spring", stiffness: 350, damping: 15 }}
+                whileHover={{ scale: isRolling || hasRolled || isCurrentBot ? 1 : 1.05 }}
+                whileTap={{ scale: isRolling || hasRolled || isCurrentBot ? 1 : 0.95 }}
               >
-                {/* Dice face values inside - Custom physical dice */}
-                {isRolling ? (
-                  <div className="animate-spin [animation-duration:0.4s]">
-                    <Sparkles size={24} className="text-white animate-pulse" />
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-3 gap-1 w-11 h-11 p-1.5 bg-white rounded-[14px] shadow-[0_4px_8px_rgba(0,0,0,0.15),inset_0_1.5px_2px_rgba(0,0,0,0.12)] border border-slate-100">
-                    {(() => {
-                      const activeDots = {
-                        1: [4],
-                        2: [0, 8],
-                        3: [0, 4, 8],
-                        4: [0, 2, 6, 8],
-                        5: [0, 2, 4, 6, 8],
-                        6: [0, 2, 3, 5, 6, 8]
-                      }[diceValue] || [];
-                      return Array.from({ length: 9 }).map((_, idx) => {
-                        const isActive = activeDots.includes(idx);
-                        return (
-                          <div key={idx} className="flex items-center justify-center">
-                            {isActive && (
-                              <div 
-                                className="w-2.5 h-2.5 rounded-full shadow-[inset_0_1.5px_1.5px_rgba(0,0,0,0.3)]"
-                                style={{ backgroundColor: activeColorTheme.hex }}
-                              />
-                            )}
-                          </div>
-                        );
-                      });
-                    })()}
-                  </div>
+                {/* 3D Dice Face Container */}
+                <motion.div 
+                  className="grid grid-cols-3 gap-1 w-11 h-11 p-1.5 bg-white rounded-[14px] shadow-[0_5px_10px_rgba(0,0,0,0.18),inset_0_1.5px_2px_rgba(0,0,0,0.12)] border border-slate-100 select-none pointer-events-none"
+                  animate={isRolling ? { 
+                    rotateY: [0, 180, 360], 
+                    rotateX: [0, -180, 360],
+                    scale: [1, 0.82, 1.15, 1]
+                  } : {}}
+                  transition={isRolling ? { duration: 0.6, ease: "linear" } : {}}
+                >
+                  {(() => {
+                    const activeDots = {
+                      1: [4],
+                      2: [0, 8],
+                      3: [0, 4, 8],
+                      4: [0, 2, 6, 8],
+                      5: [0, 2, 4, 6, 8],
+                      6: [0, 2, 3, 5, 6, 8]
+                    }[diceValue] || [];
+                    return Array.from({ length: 9 }).map((_, idx) => {
+                      const isActive = activeDots.includes(idx);
+                      return (
+                        <div key={idx} className="flex items-center justify-center">
+                          {isActive && (
+                            <div 
+                              className="w-2.5 h-2.5 rounded-full shadow-[inset_0_1.5px_1.5px_rgba(0,0,0,0.3)]"
+                              style={{ backgroundColor: activeColorTheme.hex }}
+                            />
+                          )}
+                        </div>
+                      );
+                    });
+                  })()}
+                </motion.div>
+
+                {/* Subtle rolling halo trail */}
+                {isRolling && (
+                  <span className="absolute inset-0 rounded-[24px] border border-white/40 animate-ping opacity-75" style={{ animationDuration: '0.4s' }} />
                 )}
-              </button>
+              </motion.button>
 
               <span className="text-[10px] font-black uppercase tracking-[0.14em] text-slate-400 dark:text-slate-500">
                 {isRolling ? 'ROLLING...' : isCurrentBot ? 'BOT PLAYING' : hasRolled ? 'TAP TOKEN' : 'TAP TO ROLL'}

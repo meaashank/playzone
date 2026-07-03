@@ -55,4 +55,5 @@ export type ScreenId =
   | 'about'
   | 'group-play'
   | 'tic-tac-toe'
-  | 'ludo-classic';
+  | 'ludo-classic'
+  | 'snake-rush';

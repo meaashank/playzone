@@ -725,11 +725,11 @@ export const TicTacToeGame: React.FC<TicTacToeGameProps> = ({
         )}
       </AnimatePresence>
 
-      <div className="flex-1 overflow-y-auto flex flex-col items-center justify-between py-6 px-4 space-y-4">
+      <div className="flex-1 overflow-y-auto flex flex-col items-center justify-between py-6 px-4 space-y-4 max-w-2xl mx-auto w-full">
         
         {/* HOMEPAGE MENU */}
         {!isPlaying ? (
-          <div className="flex-1 flex flex-col justify-between w-full max-w-sm space-y-6">
+          <div className="flex-1 flex flex-col justify-between w-full max-w-md md:max-w-xl space-y-6">
             
             {/* Visual Intro Mascot/Icon with rich visual layout */}
             <div className="flex-1 flex flex-col items-center justify-center space-y-6">
@@ -938,7 +938,7 @@ export const TicTacToeGame: React.FC<TicTacToeGameProps> = ({
         ) : (
           
           /* ACTIVE MATCH LAYOUT */
-          <div className="flex-1 flex flex-col justify-between w-full max-w-sm space-y-4">
+          <div className="flex-1 flex flex-col justify-between w-full max-w-md md:max-w-xl space-y-4">
             
             {/* Top Match Stats */}
             <div className="flex items-center justify-between px-2">

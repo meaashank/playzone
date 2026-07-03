@@ -104,10 +104,10 @@ export default function App() {
       {/* Centered Device Chassis on Desktop, Full-Screen on Mobile */}
       <div
         id="app-phone-container"
-        className={`w-full h-screen md:w-[390px] md:h-[844px] md:my-6 md:rounded-[40px] md:shadow-2xl overflow-hidden relative border-0 md:border-[10px] ${
+        className={`w-full h-screen md:max-w-6xl md:max-h-[92vh] md:my-6 md:rounded-[36px] md:shadow-2xl overflow-hidden relative border-0 md:border-[6px] ${
           theme === 'dark'
             ? 'bg-slate-900 md:border-slate-800 shadow-[#030712]/80'
-            : 'bg-white md:border-slate-900/90 shadow-2xl shadow-slate-300'
+            : 'bg-white md:border-slate-350 shadow-2xl shadow-slate-300'
         } transition-all duration-300 flex flex-col`}
       >
         {/* Dynamic Slide-in Toast Banner inside the App View */}

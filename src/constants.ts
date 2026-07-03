@@ -53,7 +53,7 @@ export const GAME_PLACEHOLDERS: GamePlaceholder[] = [
     description: 'Navigate the growing serpent around obstacles.',
     color: 'bg-teal-600',
     accentColor: 'text-teal-200',
-    isComingSoon: true,
+    isComingSoon: false,
     iconName: 'snake',
   },
   {
