@@ -488,10 +488,10 @@ export const LudoClassicGame: React.FC<LudoClassicGameProps> = ({
   onAddCoins
 }) => {
   // Game Setup Configurations
-  const [setupMode, setSetupMode] = useState<'single' | 'dual' | 'multi'>('single');
-  const [columnsAlternative, setColumnsAlternative] = useState<boolean>(false); // false = 1 col, true = 2 cols (alternating)
-  const [multiplayerCount, setMultiplayerCount] = useState<3 | 4>(3);
-  const [tokenCountChoice, setTokenCountChoice] = useState<2 | 4>(2);
+  const [setupMode, setSetupMode] = useState<'single' | 'multi'>('single');
+  const [vsBotMatchup, setVsBotMatchup] = useState<'1v1' | '2v1' | '2v2'>('1v1');
+  const [multiplayerCount, setMultiplayerCount] = useState<2 | 3 | 4>(2);
+  const [tokenCountChoice, setTokenCountChoice] = useState<2 | 4>(4);
   const [easyRelease, setEasyRelease] = useState<boolean>(true); // true = 1 or 6, false = 6 only
 
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
@@ -529,19 +529,16 @@ export const LudoClassicGame: React.FC<LudoClassicGameProps> = ({
   // Define dynamic button gradient colors based on setupMode to keep the screen exceptionally beautiful
   const modeGradientClass = {
     single: 'bg-gradient-to-br from-blue-500 via-indigo-500 to-violet-600 text-white shadow-lg shadow-blue-500/25 border-transparent',
-    dual: 'bg-gradient-to-br from-emerald-500 via-teal-500 to-cyan-600 text-white shadow-lg shadow-emerald-500/25 border-transparent',
     multi: 'bg-gradient-to-br from-orange-500 via-rose-500 to-pink-600 text-white shadow-lg shadow-rose-500/25 border-transparent',
   }[setupMode];
 
   const easyReleaseToggleClass = {
     single: 'bg-indigo-600',
-    dual: 'bg-teal-600',
     multi: 'bg-rose-600',
   }[setupMode];
 
   const startButtonGradientClass = {
     single: 'from-blue-500 via-indigo-500 to-violet-600 shadow-indigo-500/25',
-    dual: 'from-emerald-500 via-teal-500 to-cyan-600 shadow-teal-500/25',
     multi: 'from-orange-500 via-rose-500 to-pink-600 shadow-rose-500/25',
   }[setupMode];
 
@@ -574,36 +571,34 @@ export const LudoClassicGame: React.FC<LudoClassicGameProps> = ({
     let pLabels: { [color: string]: string } = {};
 
     if (setupMode === 'single') {
-      if (!columnsAlternative) {
-        // 1 vs 1 vs Bot
-        pList = ['red', 'green'];
-        pTypes = { red: 'human', green: 'bot' };
-        pNames = { red: 'Gamer (You)', green: 'Robo Bot 🤖' };
-        pLabels = { red: 'Red (You)', green: 'Green (Bot)' };
+      if (vsBotMatchup === '1v1') {
+        // 1 vs 1 Bot (Opposite Colors: Red vs Yellow)
+        pList = ['red', 'yellow'];
+        pTypes = { red: 'human', yellow: 'bot' };
+        pNames = { red: 'Gamer (You)', yellow: 'Robo Bot 🤖' };
+        pLabels = { red: 'Red (You)', yellow: 'Yellow (Bot)' };
+      } else if (vsBotMatchup === '2v1') {
+        // 1 Bot vs 2 Users (Red & Yellow for Users, Green for Bot)
+        pList = ['red', 'green', 'yellow'];
+        pTypes = { red: 'human', green: 'bot', yellow: 'human' };
+        pNames = { red: 'User A 🔴', green: 'Robo Bot 🤖', yellow: 'User B 🟡' };
+        pLabels = { red: 'Red (User A)', green: 'Green (Bot)', yellow: 'Yellow (User B)' };
       } else {
-        // 2 vs 2 Bots (Two alternatives)
+        // 2 vs 2 Bots (Alternating: Red & Yellow for Users, Green & Blue for Bots)
         pList = ['red', 'green', 'yellow', 'blue'];
         pTypes = { red: 'human', green: 'bot', yellow: 'human', blue: 'bot' };
-        pNames = { red: 'Gamer A (You)', green: 'Robo Bot 1 🤖', yellow: 'Gamer B (You)', blue: 'Robo Bot 2 🤖' };
-        pLabels = { red: 'Red (You-A)', green: 'Green (Bot-1)', yellow: 'Yellow (You-B)', blue: 'Blue (Bot-2)' };
-      }
-    } else if (setupMode === 'dual') {
-      if (!columnsAlternative) {
-        // 1 vs 1 Human Local
-        pList = ['red', 'green'];
-        pTypes = { red: 'human', green: 'human' };
-        pNames = { red: 'Player 1 🔴', green: 'Player 2 🟢' };
-        pLabels = { red: 'Red (P1)', green: 'Green (P2)' };
-      } else {
-        // 2 vs 2 Human Local (Alternative columns)
-        pList = ['red', 'green', 'yellow', 'blue'];
-        pTypes = { red: 'human', green: 'human', yellow: 'human', blue: 'human' };
-        pNames = { red: 'Player 1 (A)', green: 'Player 2 (A)', yellow: 'Player 1 (B)', blue: 'Player 2 (B)' };
-        pLabels = { red: 'Red (P1-A)', green: 'Green (P2-A)', yellow: 'Yellow (P1-B)', blue: 'Blue (P2-B)' };
+        pNames = { red: 'User A 🔴', green: 'Robo Bot 1 🤖', yellow: 'User B 🟡', blue: 'Robo Bot 2 🤖' };
+        pLabels = { red: 'Red (User A)', green: 'Green (Bot-1)', yellow: 'Yellow (User B)', blue: 'Blue (Bot-2)' };
       }
     } else {
-      // Multiplayer mode: 3 or 4 humans (1 column each)
-      if (multiplayerCount === 3) {
+      // Multiplayer mode: 2, 3 or 4 humans (1 column each)
+      if (multiplayerCount === 2) {
+        // 2 players: Red and Yellow (Opposite/Alternating Colors!)
+        pList = ['red', 'yellow'];
+        pTypes = { red: 'human', yellow: 'human' };
+        pNames = { red: 'Player 1 🔴', yellow: 'Player 2 🟡' };
+        pLabels = { red: 'Red (P1)', yellow: 'Yellow (P2)' };
+      } else if (multiplayerCount === 3) {
         pList = ['red', 'green', 'yellow'];
         pTypes = { red: 'human', green: 'human', yellow: 'human' };
         pNames = { red: 'Player 1 🔴', green: 'Player 2 🟢', yellow: 'Player 3 🟡' };
@@ -630,7 +625,7 @@ export const LudoClassicGame: React.FC<LudoClassicGameProps> = ({
     setGameLogs([]);
 
     addLog('🎲 Welcome to Ludo Classic!');
-    addLog(`🎮 Mode: ${setupMode.toUpperCase()} (${columnsAlternative ? '2 Columns Each' : '1 Column Each'})`);
+    addLog(`🎮 Mode: ${setupMode.toUpperCase()} (${setupMode === 'single' ? vsBotMatchup : `${multiplayerCount} Players`})`);
     addLog(`🎲 Easy release: ${easyRelease ? 'Roll 1 or 6' : 'Roll 6 only'}`);
     addLog(`🟢 Turn sequence starting: ${pNames[pList[0]]}`);
 
@@ -641,6 +636,93 @@ export const LudoClassicGame: React.FC<LudoClassicGameProps> = ({
   const currentActiveColor = activePlayers[currentTurnIdx];
   const isCurrentBot = playerTypes[currentActiveColor] === 'bot';
   const activeColorTheme = activeTheme[currentActiveColor as 'red' | 'green' | 'yellow' | 'blue'] || activeTheme.red;
+
+  // Render individual corner dice inside the home bases
+  const renderCornerDice = (color: 'red' | 'green' | 'yellow' | 'blue') => {
+    // If this color is not active in the current match, do not render its dice
+    if (!activePlayers.includes(color)) return null;
+
+    const isActiveTurn = currentActiveColor === color;
+    const isBot = playerTypes[color] === 'bot';
+    const isDisabled = !isActiveTurn || isRolling || hasRolled || isBot;
+
+    // Hex color matching this player
+    const playerThemeColor = {
+      red: '#ef4444',
+      green: '#10b981',
+      yellow: '#eab308',
+      blue: '#3b82f6',
+    }[color];
+
+    return (
+      <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-30">
+        <motion.button
+          disabled={isDisabled}
+          onClick={rollDice}
+          className={`pointer-events-auto relative w-12 h-12 md:w-16 md:h-16 rounded-[12px] md:rounded-[16px] bg-white dark:bg-slate-800 border border-slate-200/60 dark:border-slate-700 flex items-center justify-center transition-all cursor-pointer ${
+            isActiveTurn && !hasRolled && !isRolling && !isBot ? 'animate-bounce [animation-duration:1s]' : ''
+          }`}
+          style={{
+            boxShadow: isActiveTurn
+              ? `0 10px 20px ${playerThemeColor}40, inset 0 -3px 5px rgba(0,0,0,0.1), inset 0 3px 5px rgba(255,255,255,0.9)`
+              : `0 4px 10px rgba(0,0,0,0.08), inset 0 -2px 3px rgba(0,0,0,0.05), inset 0 2px 3px rgba(255,255,255,0.7)`,
+            opacity: isActiveTurn ? 1 : 0.35,
+          }}
+          whileHover={isDisabled ? {} : { scale: 1.1 }}
+          whileTap={isDisabled ? {} : { scale: 0.95 }}
+        >
+          {/* Dice Dots Container */}
+          <motion.div 
+            className="grid grid-cols-3 gap-0.5 w-7 h-7 p-1 select-none pointer-events-none origin-center"
+            animate={isActiveTurn && isRolling ? { 
+              rotateY: [0, 360], 
+              rotateX: [0, 360],
+              scale: [1, 1.3, 0.8, 1.1, 1]
+            } : {}}
+            transition={isActiveTurn && isRolling ? { duration: 0.6, ease: "easeInOut" } : {}}
+          >
+            {(() => {
+              // Display the current roll value if it is active, or a 6 as default/pulsing placeholder
+              const valToDisplay = isActiveTurn ? diceValue : 6;
+              const activeDots = {
+                1: [4],
+                2: [0, 8],
+                3: [0, 4, 8],
+                4: [0, 2, 6, 8],
+                5: [0, 2, 4, 6, 8],
+                6: [0, 2, 3, 5, 6, 8]
+              }[valToDisplay] || [];
+
+              return Array.from({ length: 9 }).map((_, idx) => {
+                const isActive = activeDots.includes(idx);
+                return (
+                  <div key={idx} className="flex items-center justify-center">
+                    {isActive && (
+                      <div 
+                        className="w-1.5 h-1.5 rounded-full transition-all duration-300 shadow-[inset_0_1px_1px_rgba(0,0,0,0.3)]"
+                        style={{ backgroundColor: playerThemeColor }}
+                      />
+                    )}
+                  </div>
+                );
+              });
+            })()}
+          </motion.div>
+
+          {/* Pulsing colored ring to indicate active human player turn */}
+          {isActiveTurn && !isRolling && !hasRolled && !isBot && (
+            <span 
+              className="absolute inset-0 rounded-[12px] md:rounded-[16px] border-2 animate-ping opacity-60 pointer-events-none"
+              style={{ 
+                borderColor: playerThemeColor,
+                animationDuration: '1.2s'
+              }} 
+            />
+          )}
+        </motion.button>
+      </div>
+    );
+  };
 
   // Function to map step count to 15x15 grid (x, y) coordinates
   const getTokenPosition = (color: string, step: number, tokenIndex: number): [number, number] => {
@@ -1206,7 +1288,7 @@ export const LudoClassicGame: React.FC<LudoClassicGameProps> = ({
             <span className="text-[10px] font-black uppercase tracking-widest pl-1 block text-left text-slate-400 dark:text-slate-500">
               Choose Game Mode
             </span>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-2 gap-2">
               <button
                 onClick={() => { playSound('click'); setSetupMode('single'); }}
                 className={`p-3 rounded-2xl border flex flex-col items-center justify-center space-y-1.5 transition-all cursor-pointer h-24 ${
@@ -1219,20 +1301,6 @@ export const LudoClassicGame: React.FC<LudoClassicGameProps> = ({
                 <div className="text-center">
                   <span className="text-[10px] font-black tracking-tight block">vs Bot</span>
                   <span className="text-[8px] opacity-80 block font-bold mt-0.5">Play against AI</span>
-                </div>
-              </button>
-              <button
-                onClick={() => { playSound('click'); setSetupMode('dual'); }}
-                className={`p-3 rounded-2xl border flex flex-col items-center justify-center space-y-1.5 transition-all cursor-pointer h-24 ${
-                  setupMode === 'dual'
-                    ? 'bg-gradient-to-br from-emerald-500 via-teal-500 to-cyan-600 text-white shadow-lg shadow-emerald-500/25 border-transparent'
-                    : isDark ? 'border-slate-800 bg-slate-900 text-slate-400' : 'border-slate-200 bg-white text-slate-600 shadow-[0_4px_12px_rgba(0,0,0,0.01)]'
-                }`}
-              >
-                <Users size={20} className={setupMode === 'dual' ? 'text-white' : 'text-slate-500 dark:text-slate-400'} />
-                <div className="text-center">
-                  <span className="text-[10px] font-black tracking-tight block">Pass & Play</span>
-                  <span className="text-[8px] opacity-80 block font-bold mt-0.5">2 Players Local</span>
                 </div>
               </button>
               <button
@@ -1257,34 +1325,48 @@ export const LudoClassicGame: React.FC<LudoClassicGameProps> = ({
             isDark ? 'bg-slate-900 border-slate-800/80' : 'bg-white border-slate-150 shadow-[0_4px_24px_rgba(0,0,0,0.015)]'
           }`}>
             
-            {/* Conditional Column count selection (for Single or Dual) */}
-            {(setupMode === 'single' || setupMode === 'dual') && (
+            {/* Conditional Match Setup for Single (vs Bot) */}
+            {setupMode === 'single' && (
               <div className="space-y-2">
                 <label className={`text-[10px] font-black uppercase tracking-widest block ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
-                  Columns:
+                  Bot Match Setup:
                 </label>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-3 gap-2">
                   <button
-                    onClick={() => { playSound('click'); setColumnsAlternative(false); }}
-                    className={`p-3 rounded-xl border flex flex-col items-center justify-center transition-all cursor-pointer ${
-                      !columnsAlternative
+                    onClick={() => { playSound('click'); setVsBotMatchup('1v1'); }}
+                    className={`p-2.5 rounded-xl border flex flex-col items-center justify-center transition-all cursor-pointer h-20 ${
+                      vsBotMatchup === '1v1'
                         ? `${modeGradientClass}`
                         : isDark ? 'bg-slate-950 border-slate-800 text-slate-400' : 'bg-slate-50 border-slate-200 text-slate-600'
                     }`}
                   >
-                    <span className="text-[11px] font-black tracking-tight">1 Column Each</span>
-                    <span className="text-[8px] opacity-85 block font-bold mt-0.5">Classic Mode</span>
+                    <span className="text-[10px] font-black tracking-tight text-center leading-tight">1 vs 1</span>
+                    <span className="text-[8px] opacity-85 block font-bold mt-0.5 text-center leading-tight">You vs Bot</span>
+                    <span className="text-[7px] opacity-75 block font-bold mt-0.5 text-center leading-tight">(Opposite Colors)</span>
                   </button>
                   <button
-                    onClick={() => { playSound('click'); setColumnsAlternative(true); }}
-                    className={`p-3 rounded-xl border flex flex-col items-center justify-center transition-all cursor-pointer ${
-                      columnsAlternative
+                    onClick={() => { playSound('click'); setVsBotMatchup('2v1'); }}
+                    className={`p-2.5 rounded-xl border flex flex-col items-center justify-center transition-all cursor-pointer h-20 ${
+                      vsBotMatchup === '2v1'
                         ? `${modeGradientClass}`
                         : isDark ? 'bg-slate-950 border-slate-800 text-slate-400' : 'bg-slate-50 border-slate-200 text-slate-600'
                     }`}
                   >
-                    <span className="text-[11px] font-black tracking-tight">2 Columns Each</span>
-                    <span className="text-[8px] opacity-85 block font-bold mt-0.5">Advanced Mode</span>
+                    <span className="text-[10px] font-black tracking-tight text-center leading-tight">1 Bot vs 2 Users</span>
+                    <span className="text-[8px] opacity-85 block font-bold mt-0.5 text-center leading-tight">2 Local vs AI</span>
+                    <span className="text-[7px] opacity-75 block font-bold mt-0.5 text-center leading-tight">(3 Players)</span>
+                  </button>
+                  <button
+                    onClick={() => { playSound('click'); setVsBotMatchup('2v2'); }}
+                    className={`p-2.5 rounded-xl border flex flex-col items-center justify-center transition-all cursor-pointer h-20 ${
+                      vsBotMatchup === '2v2'
+                        ? `${modeGradientClass}`
+                        : isDark ? 'bg-slate-950 border-slate-800 text-slate-400' : 'bg-slate-50 border-slate-200 text-slate-600'
+                    }`}
+                  >
+                    <span className="text-[10px] font-black tracking-tight text-center leading-tight">2 vs 2</span>
+                    <span className="text-[8px] opacity-85 block font-bold mt-0.5 text-center leading-tight">2 Local vs 2 Bots</span>
+                    <span className="text-[7px] opacity-75 block font-bold mt-0.5 text-center leading-tight">(Alternating)</span>
                   </button>
                 </div>
               </div>
@@ -1296,7 +1378,18 @@ export const LudoClassicGame: React.FC<LudoClassicGameProps> = ({
                 <label className={`text-[10px] font-black uppercase tracking-widest block ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
                   Number of Players:
                 </label>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-3 gap-2">
+                  <button
+                    onClick={() => { playSound('click'); setMultiplayerCount(2); }}
+                    className={`p-3 rounded-xl border flex flex-col items-center justify-center transition-all cursor-pointer ${
+                      multiplayerCount === 2
+                        ? `${modeGradientClass}`
+                        : isDark ? 'bg-slate-950 border-slate-800 text-slate-400' : 'bg-slate-50 border-slate-200 text-slate-600'
+                    }`}
+                  >
+                    <span className="text-[11px] font-black tracking-tight text-center">2 Players</span>
+                    <span className="text-[8px] opacity-85 block font-bold mt-0.5 text-center">Opposite Match</span>
+                  </button>
                   <button
                     onClick={() => { playSound('click'); setMultiplayerCount(3); }}
                     className={`p-3 rounded-xl border flex flex-col items-center justify-center transition-all cursor-pointer ${
@@ -1305,8 +1398,8 @@ export const LudoClassicGame: React.FC<LudoClassicGameProps> = ({
                         : isDark ? 'bg-slate-950 border-slate-800 text-slate-400' : 'bg-slate-50 border-slate-200 text-slate-600'
                     }`}
                   >
-                    <span className="text-[11px] font-black tracking-tight">3 Players</span>
-                    <span className="text-[8px] opacity-85 block font-bold mt-0.5">Triangular Match</span>
+                    <span className="text-[11px] font-black tracking-tight text-center">3 Players</span>
+                    <span className="text-[8px] opacity-85 block font-bold mt-0.5 text-center">Triangular Match</span>
                   </button>
                   <button
                     onClick={() => { playSound('click'); setMultiplayerCount(4); }}
@@ -1316,8 +1409,8 @@ export const LudoClassicGame: React.FC<LudoClassicGameProps> = ({
                         : isDark ? 'bg-slate-950 border-slate-800 text-slate-400' : 'bg-slate-50 border-slate-200 text-slate-600'
                     }`}
                   >
-                    <span className="text-[11px] font-black tracking-tight">4 Players</span>
-                    <span className="text-[8px] opacity-85 block font-bold mt-0.5">Classic Quad Match</span>
+                    <span className="text-[11px] font-black tracking-tight text-center">4 Players</span>
+                    <span className="text-[8px] opacity-85 block font-bold mt-0.5 text-center">Classic Quad</span>
                   </button>
                 </div>
               </div>
@@ -1395,205 +1488,148 @@ export const LudoClassicGame: React.FC<LudoClassicGameProps> = ({
           </button>
         </div>
       ) : (
-        /* PLAYING ARENA VIEW */
-        <div id="ludo-arena-view" className="flex-1 flex flex-col overflow-hidden max-w-4xl mx-auto w-full">
+        /* PLAYING ARENA VIEW - 100% WORDLESS AND FLAT TRADITIONAL STYLE */
+        <div id="ludo-arena-view" className="flex-1 flex flex-col overflow-hidden max-w-4xl mx-auto w-full select-none">
           
-          {/* HEADER STATUS: PULSING ACTIVE TURN */}
-          <div className="px-4 py-2 shrink-0">
-            <div 
-              className="bg-white/70 dark:bg-slate-900/70 border border-slate-200/50 dark:border-slate-800/50 shadow-[0_8px_20px_rgba(0,0,0,0.03)] rounded-[24px] p-3 flex items-center justify-between"
-              style={{
-                background: isDark ? 'rgba(15, 23, 42, 0.7)' : 'rgba(255, 255, 255, 0.75)',
-                backdropFilter: 'blur(10px)',
-                borderColor: `${activeColorTheme.hex}20`
+          {/* HEADER STATUS: WORDLESS MINIMALIST ICON ROW */}
+          <div className="px-4 py-3 flex items-center justify-between shrink-0 bg-white/40 dark:bg-slate-950/20">
+            {/* Back to lobby button (Left) */}
+            <button
+              onClick={() => {
+                playSound('click');
+                setShowQuitConfirm(true);
               }}
+              className="w-10 h-10 flex items-center justify-center rounded-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all cursor-pointer active:scale-95"
             >
-              <div className="flex items-center pl-1">
-                {/* 3D Shiny Sphere */}
-                <div 
-                  className="w-10 h-10 rounded-full shrink-0 relative shadow-inner"
-                  style={{
-                    background: `radial-gradient(circle at 35% 35%, #ffffff 0%, ${activeColorTheme.hex} 40%, ${activeColorTheme.hex}dd 75%, #000000 100%)`,
-                    boxShadow: `0 4px 10px ${activeColorTheme.hex}40, inset 0 2px 4px rgba(255,255,255,0.4)`
-                  }}
-                />
-                
-                <div className="text-left pl-3 flex flex-col justify-center">
-                  <span className="text-[11px] font-black uppercase tracking-[0.06em] leading-tight block" style={{ color: activeColorTheme.hex }}>
-                    {colorLabels[currentActiveColor]} {playerTypes[currentActiveColor] === 'human' ? '(YOU)' : '(BOT)'} TURN
-                  </span>
-                  
-                  {/* Faded dots matching mockup */}
-                  <div className="flex gap-1.5 mt-1.5">
-                    <span className="w-2.5 h-2.5 rounded-full shadow-[inset_0_1px_1px_rgba(0,0,0,0.2)]" style={{ backgroundColor: activeColorTheme.hex }} />
-                    <span className="w-2.5 h-2.5 rounded-full shadow-[inset_0_1px_1px_rgba(0,0,0,0.1)] opacity-25" style={{ backgroundColor: activeColorTheme.hex }} />
-                    <span className="w-2.5 h-2.5 rounded-full shadow-[inset_0_1px_1px_rgba(0,0,0,0.1)] opacity-25" style={{ backgroundColor: activeColorTheme.hex }} />
-                    <span className="w-2.5 h-2.5 rounded-full shadow-[inset_0_1px_1px_rgba(0,0,0,0.1)] opacity-25" style={{ backgroundColor: activeColorTheme.hex }} />
-                  </div>
-                </div>
-              </div>
+              <ArrowLeft size={18} />
+            </button>
 
-              {/* Right Side Dice Box Container */}
-              <div 
-                className="flex items-center gap-2.5 px-3 py-1.5 rounded-2xl shadow-md border text-white transition-all select-none"
-                style={{
-                  background: `linear-gradient(135deg, ${activeColorTheme.hex}, ${activeColorTheme.hex}dd)`,
-                  boxShadow: `0 4px 12px ${activeColorTheme.hex}30, inset 0 1px 2px rgba(255,255,255,0.35)`,
-                  borderColor: `${activeColorTheme.hex}20`
-                }}
-              >
-                {/* Mini White Dice Face */}
-                <div className="grid grid-cols-3 gap-0.5 w-7 h-7 p-1 bg-white rounded-md shadow-inner">
-                  {(() => {
-                    const activeDots = {
-                      1: [4],
-                      2: [0, 8],
-                      3: [0, 4, 8],
-                      4: [0, 2, 6, 8],
-                      5: [0, 2, 4, 6, 8],
-                      6: [0, 2, 3, 5, 6, 8]
-                    }[diceValue] || [];
-                    return Array.from({ length: 9 }).map((_, idx) => {
-                      const isActive = activeDots.includes(idx);
-                      return (
-                        <div key={idx} className="flex items-center justify-center">
-                          {isActive && (
-                            <div 
-                              className="w-1.5 h-1.5 rounded-full"
-                              style={{ backgroundColor: activeColorTheme.hex }}
-                            />
-                          )}
-                        </div>
-                      );
-                    });
-                  })()}
-                </div>
-                {/* Giant value next to dice */}
-                <span className="text-[20px] font-black font-sans leading-none pr-1">
-                  {diceValue}
-                </span>
-              </div>
+            {/* Silent Pulsing Indicator Dot of the Current Player in the center */}
+            <div className="flex gap-3 items-center justify-center bg-white dark:bg-slate-900 px-4 py-1.5 rounded-full border border-slate-200/60 dark:border-slate-800 shadow-sm">
+              {['red', 'green', 'yellow', 'blue'].map((col) => {
+                const isActive = currentActiveColor === col;
+                const dotColor = {
+                  red: '#DC2626',
+                  green: '#16A34A',
+                  yellow: '#EAB308',
+                  blue: '#2563EB',
+                }[col as 'red' | 'green' | 'yellow' | 'blue'];
+                return (
+                  <span 
+                    key={col} 
+                    className={`w-3 h-3 rounded-full transition-all duration-300 ${
+                      isActive ? 'scale-125 ring-2 ring-slate-800/20 dark:ring-white/40 shadow-md animate-pulse' : 'opacity-20'
+                    }`}
+                    style={{ backgroundColor: dotColor }}
+                  />
+                );
+              })}
             </div>
+
+            {/* Restart button (Right) */}
+            <button
+              onClick={() => {
+                playSound('click');
+                handleRestart();
+              }}
+              className="w-10 h-10 flex items-center justify-center rounded-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all cursor-pointer active:scale-95"
+            >
+              <RotateCcw size={18} />
+            </button>
           </div>
 
           {/* MAIN INTERACTIVE LUDO BOARD SCENE */}
-          <div className="flex-1 flex items-center justify-center p-3 overflow-hidden">
-            {/* Outer 3D clay-looking board container */}
-            <div className="w-full max-w-[360px] md:max-w-[560px] aspect-square relative bg-[#f7f5ee] dark:bg-slate-900 border-[6px] border-[#efede6] dark:border-slate-800 rounded-[36px] p-2 shadow-[0_16px_36px_rgba(0,0,0,0.12),0_4px_12px_rgba(0,0,0,0.08),inset_0_-4px_6px_rgba(0,0,0,0.06)] flex items-center justify-center">
+          <div className="flex-1 flex items-center justify-center p-3 md:p-6 overflow-hidden">
+            {/* Flat Cardboard-style Square Board Container */}
+            <div 
+              className="w-full max-w-[360px] md:max-w-[540px] aspect-square relative bg-white border-[6px] border-slate-800 shadow-xl flex items-center justify-center transition-all duration-300"
+            >
               
               {/* GRID BOARD CONTAINER */}
-              <div className="w-full h-full grid grid-cols-15 grid-rows-15 rounded-[26px] overflow-hidden relative select-none bg-[#fcfbfa] dark:bg-slate-950 p-[1.5px] shadow-[inset_0_2px_8px_rgba(0,0,0,0.05)] border border-slate-200/40 dark:border-slate-800/40">
+              <div className="w-full h-full grid grid-cols-15 grid-rows-15 overflow-hidden relative select-none bg-[#FDFBF7] p-[1px]">
                 
                 {/* 1. RED BASE (Row 0-5, Col 0-5) */}
                 <div 
-                  className={`m-[3px] rounded-[24px] p-1 relative flex items-center justify-center transition-all duration-300 border-[4px] shadow-[0_4px_8px_rgba(0,0,0,0.04)] ${
-                    currentActiveColor === 'red' 
-                      ? 'border-red-500 bg-red-500/10' 
-                      : 'border-red-500/40 bg-red-500/5'
-                  }`} 
-                  style={{ gridRow: '1 / 7', gridColumn: '1 / 7' }}
+                  className="relative flex items-center justify-center transition-all duration-300 border border-slate-800 bg-[#DC2626]"
+                  style={{ 
+                    gridRow: '1 / 7', 
+                    gridColumn: '1 / 7',
+                  }}
                 >
-                  <div className="w-full h-full bg-[#faf8f4] dark:bg-slate-900/60 rounded-[18px] p-3 grid grid-cols-2 grid-rows-2 gap-4 items-center justify-items-center relative shadow-[inset_0_3px_6px_rgba(0,0,0,0.05)]">
-                    <div className="w-10 h-10 rounded-full bg-slate-100/60 dark:bg-slate-950/40 border border-slate-200/50 dark:border-slate-850 shadow-[inset_0_2px_4px_rgba(0,0,0,0.08)] flex items-center justify-center" />
-                    <div className="w-10 h-10 rounded-full bg-slate-100/60 dark:bg-slate-950/40 border border-slate-200/50 dark:border-slate-850 shadow-[inset_0_2px_4px_rgba(0,0,0,0.08)] flex items-center justify-center" />
-                    <div className="w-10 h-10 rounded-full bg-slate-100/60 dark:bg-slate-950/40 border border-slate-200/50 dark:border-slate-850 shadow-[inset_0_2px_4px_rgba(0,0,0,0.08)] flex items-center justify-center" />
-                    <div className="w-10 h-10 rounded-full bg-slate-100/60 dark:bg-slate-950/40 border border-slate-200/50 dark:border-slate-850 shadow-[inset_0_2px_4px_rgba(0,0,0,0.08)] flex items-center justify-center" />
+                  <div className="w-4/5 h-4/5 bg-white border-2 border-slate-800 grid grid-cols-2 grid-rows-2 p-2.5 gap-4 items-center justify-items-center relative">
+                    <div className="w-6.5 h-6.5 md:w-8 md:h-8 rounded-full bg-[#DC2626] border border-slate-900/15 shadow-inner" />
+                    <div className="w-6.5 h-6.5 md:w-8 md:h-8 rounded-full bg-[#DC2626] border border-slate-900/15 shadow-inner" />
+                    <div className="w-6.5 h-6.5 md:w-8 md:h-8 rounded-full bg-[#DC2626] border border-slate-900/15 shadow-inner" />
+                    <div className="w-6.5 h-6.5 md:w-8 md:h-8 rounded-full bg-[#DC2626] border border-slate-900/15 shadow-inner" />
+                    {renderCornerDice('red')}
                   </div>
                 </div>
-
+ 
                 {/* 2. GREEN BASE (Row 0-5, Col 9-14) */}
                 <div 
-                  className={`m-[3px] rounded-[24px] p-1 relative flex items-center justify-center transition-all duration-300 border-[4px] shadow-[0_4px_8px_rgba(0,0,0,0.04)] ${
-                    currentActiveColor === 'green' 
-                      ? 'border-emerald-500 bg-emerald-500/10' 
-                      : 'border-emerald-500/40 bg-emerald-500/5'
-                  }`} 
-                  style={{ gridRow: '1 / 7', gridColumn: '10 / 16' }}
+                  className="relative flex items-center justify-center transition-all duration-300 border border-slate-800 bg-[#16A34A]"
+                  style={{ 
+                    gridRow: '1 / 7', 
+                    gridColumn: '10 / 16',
+                  }}
                 >
-                  <div className="w-full h-full bg-[#faf8f4] dark:bg-slate-900/60 rounded-[18px] p-3 grid grid-cols-2 grid-rows-2 gap-4 items-center justify-items-center relative shadow-[inset_0_3px_6px_rgba(0,0,0,0.05)]">
-                    <div className="w-10 h-10 rounded-full bg-slate-100/60 dark:bg-slate-950/40 border border-slate-200/50 dark:border-slate-850 shadow-[inset_0_2px_4px_rgba(0,0,0,0.08)] flex items-center justify-center" />
-                    <div className="w-10 h-10 rounded-full bg-slate-100/60 dark:bg-slate-950/40 border border-slate-200/50 dark:border-slate-850 shadow-[inset_0_2px_4px_rgba(0,0,0,0.08)] flex items-center justify-center" />
-                    <div className="w-10 h-10 rounded-full bg-slate-100/60 dark:bg-slate-950/40 border border-slate-200/50 dark:border-slate-850 shadow-[inset_0_2px_4px_rgba(0,0,0,0.08)] flex items-center justify-center" />
-                    <div className="w-10 h-10 rounded-full bg-slate-100/60 dark:bg-slate-950/40 border border-slate-200/50 dark:border-slate-850 shadow-[inset_0_2px_4px_rgba(0,0,0,0.08)] flex items-center justify-center" />
+                  <div className="w-4/5 h-4/5 bg-white border-2 border-slate-800 grid grid-cols-2 grid-rows-2 p-2.5 gap-4 items-center justify-items-center relative">
+                    <div className="w-6.5 h-6.5 md:w-8 md:h-8 rounded-full bg-[#16A34A] border border-slate-900/15 shadow-inner" />
+                    <div className="w-6.5 h-6.5 md:w-8 md:h-8 rounded-full bg-[#16A34A] border border-slate-900/15 shadow-inner" />
+                    <div className="w-6.5 h-6.5 md:w-8 md:h-8 rounded-full bg-[#16A34A] border border-slate-900/15 shadow-inner" />
+                    <div className="w-6.5 h-6.5 md:w-8 md:h-8 rounded-full bg-[#16A34A] border border-slate-900/15 shadow-inner" />
+                    {renderCornerDice('green')}
                   </div>
                 </div>
-
+ 
                 {/* 3. YELLOW BASE (Row 9-14, Col 9-14) */}
                 <div 
-                  className={`m-[3px] rounded-[24px] p-1 relative flex items-center justify-center transition-all duration-300 border-[4px] shadow-[0_4px_8px_rgba(0,0,0,0.04)] ${
-                    currentActiveColor === 'yellow' 
-                      ? 'border-yellow-400 bg-yellow-400/10' 
-                      : 'border-yellow-400/40 bg-yellow-400/5'
-                  }`} 
-                  style={{ gridRow: '10 / 16', gridColumn: '10 / 16' }}
+                  className="relative flex items-center justify-center transition-all duration-300 border border-slate-800 bg-[#EAB308]"
+                  style={{ 
+                    gridRow: '10 / 16', 
+                    gridColumn: '10 / 16',
+                  }}
                 >
-                  <div className="w-full h-full bg-[#faf8f4] dark:bg-slate-900/60 rounded-[18px] p-3 grid grid-cols-2 grid-rows-2 gap-4 items-center justify-items-center relative shadow-[inset_0_3px_6px_rgba(0,0,0,0.05)]">
-                    <div className="w-10 h-10 rounded-full bg-slate-100/60 dark:bg-slate-950/40 border border-slate-200/50 dark:border-slate-850 shadow-[inset_0_2px_4px_rgba(0,0,0,0.08)] flex items-center justify-center" />
-                    <div className="w-10 h-10 rounded-full bg-slate-100/60 dark:bg-slate-950/40 border border-slate-200/50 dark:border-slate-850 shadow-[inset_0_2px_4px_rgba(0,0,0,0.08)] flex items-center justify-center" />
-                    <div className="w-10 h-10 rounded-full bg-slate-100/60 dark:bg-slate-950/40 border border-slate-200/50 dark:border-slate-850 shadow-[inset_0_2px_4px_rgba(0,0,0,0.08)] flex items-center justify-center" />
-                    <div className="w-10 h-10 rounded-full bg-slate-100/60 dark:bg-slate-950/40 border border-slate-200/50 dark:border-slate-850 shadow-[inset_0_2px_4px_rgba(0,0,0,0.08)] flex items-center justify-center" />
+                  <div className="w-4/5 h-4/5 bg-white border-2 border-slate-800 grid grid-cols-2 grid-rows-2 p-2.5 gap-4 items-center justify-items-center relative">
+                    <div className="w-6.5 h-6.5 md:w-8 md:h-8 rounded-full bg-[#EAB308] border border-slate-900/15 shadow-inner" />
+                    <div className="w-6.5 h-6.5 md:w-8 md:h-8 rounded-full bg-[#EAB308] border border-slate-900/15 shadow-inner" />
+                    <div className="w-6.5 h-6.5 md:w-8 md:h-8 rounded-full bg-[#EAB308] border border-slate-900/15 shadow-inner" />
+                    <div className="w-6.5 h-6.5 md:w-8 md:h-8 rounded-full bg-[#EAB308] border border-slate-900/15 shadow-inner" />
+                    {renderCornerDice('yellow')}
                   </div>
                 </div>
-
+ 
                 {/* 4. BLUE BASE (Row 9-14, Col 0-5) */}
                 <div 
-                  className={`m-[3px] rounded-[24px] p-1 relative flex items-center justify-center transition-all duration-300 border-[4px] shadow-[0_4px_8px_rgba(0,0,0,0.04)] ${
-                    currentActiveColor === 'blue' 
-                      ? 'border-blue-500 bg-blue-500/10' 
-                      : 'border-blue-500/40 bg-blue-500/5'
-                  }`} 
-                  style={{ gridRow: '10 / 16', gridColumn: '1 / 7' }}
+                  className="relative flex items-center justify-center transition-all duration-300 border border-slate-800 bg-[#2563EB]"
+                  style={{ 
+                    gridRow: '10 / 16', 
+                    gridColumn: '1 / 7',
+                  }}
                 >
-                  <div className="w-full h-full bg-[#faf8f4] dark:bg-slate-900/60 rounded-[18px] p-3 grid grid-cols-2 grid-rows-2 gap-4 items-center justify-items-center relative shadow-[inset_0_3px_6px_rgba(0,0,0,0.05)]">
-                    <div className="w-10 h-10 rounded-full bg-slate-100/60 dark:bg-slate-950/40 border border-slate-200/50 dark:border-slate-850 shadow-[inset_0_2px_4px_rgba(0,0,0,0.08)] flex items-center justify-center" />
-                    <div className="w-10 h-10 rounded-full bg-slate-100/60 dark:bg-slate-950/40 border border-slate-200/50 dark:border-slate-850 shadow-[inset_0_2px_4px_rgba(0,0,0,0.08)] flex items-center justify-center" />
-                    <div className="w-10 h-10 rounded-full bg-slate-100/60 dark:bg-slate-950/40 border border-slate-200/50 dark:border-slate-850 shadow-[inset_0_2px_4px_rgba(0,0,0,0.08)] flex items-center justify-center" />
-                    <div className="w-10 h-10 rounded-full bg-slate-100/60 dark:bg-slate-950/40 border border-slate-200/50 dark:border-slate-850 shadow-[inset_0_2px_4px_rgba(0,0,0,0.08)] flex items-center justify-center" />
+                  <div className="w-4/5 h-4/5 bg-white border-2 border-slate-800 grid grid-cols-2 grid-rows-2 p-2.5 gap-4 items-center justify-items-center relative">
+                    <div className="w-6.5 h-6.5 md:w-8 md:h-8 rounded-full bg-[#2563EB] border border-slate-900/15 shadow-inner" />
+                    <div className="w-6.5 h-6.5 md:w-8 md:h-8 rounded-full bg-[#2563EB] border border-slate-900/15 shadow-inner" />
+                    <div className="w-6.5 h-6.5 md:w-8 md:h-8 rounded-full bg-[#2563EB] border border-slate-900/15 shadow-inner" />
+                    <div className="w-6.5 h-6.5 md:w-8 md:h-8 rounded-full bg-[#2563EB] border border-slate-900/15 shadow-inner" />
+                    {renderCornerDice('blue')}
                   </div>
                 </div>
-
+ 
                 {/* 5. CENTER GOAL TRIANGLES (Row 6-8, Col 6-8) */}
-                <div className="m-[3px] rounded-[18px] bg-slate-100 dark:bg-slate-850 relative shadow-lg overflow-hidden flex items-center justify-center border border-slate-200/50 dark:border-slate-800/50" style={{ gridRow: '7 / 10', gridColumn: '7 / 10' }}>
-                  {/* Triangular Split Overlay using precise SVG and gradients */}
+                <div className="relative overflow-hidden flex items-center justify-center border-2 border-slate-800" style={{ gridRow: '7 / 10', gridColumn: '7 / 10' }}>
+                  {/* Triangular Split Overlay using precise SVGs with flat solid colors */}
                   <svg viewBox="0 0 100 100" className="absolute inset-0 w-full h-full">
-                    <defs>
-                      <linearGradient id="centerRedGrad" x1="0%" y1="50%" x2="100%" y2="50%">
-                        <stop offset="0%" stopColor="#ff5e62" />
-                        <stop offset="100%" stopColor="#e71d36" />
-                      </linearGradient>
-                      <linearGradient id="centerGreenGrad" x1="50%" y1="0%" x2="50%" y2="100%">
-                        <stop offset="0%" stopColor="#2ecc71" />
-                        <stop offset="100%" stopColor="#10b981" />
-                      </linearGradient>
-                      <linearGradient id="centerYellowGrad" x1="100%" y1="50%" x2="0%" y2="50%">
-                        <stop offset="0%" stopColor="#ffe259" />
-                        <stop offset="100%" stopColor="#ffa751" />
-                      </linearGradient>
-                      <linearGradient id="centerBlueGrad" x1="50%" y1="100%" x2="50%" y2="0%">
-                        <stop offset="0%" stopColor="#36d1dc" />
-                        <stop offset="100%" stopColor="#5b86e5" />
-                      </linearGradient>
-                      <linearGradient id="glossOver" x1="0%" y1="0%" x2="100%" y2="100%">
-                        <stop offset="0%" stopColor="#ffffff" stopOpacity="0.4" />
-                        <stop offset="50%" stopColor="#ffffff" stopOpacity="0.0" />
-                        <stop offset="100%" stopColor="#000000" stopOpacity="0.15" />
-                      </linearGradient>
-                    </defs>
-                    <polygon points="0,0 50,50 0,100" fill="url(#centerRedGrad)" /> {/* Red left */}
-                    <polygon points="0,0 50,50 100,0" fill="url(#centerGreenGrad)" /> {/* Green top */}
-                    <polygon points="100,0 50,50 100,100" fill="url(#centerYellowGrad)" /> {/* Yellow right */}
-                    <polygon points="0,100 50,50 100,100" fill="url(#centerBlueGrad)" /> {/* Blue bottom */}
+                    <polygon points="0,0 50,50 0,100" fill="#DC2626" stroke="#1e293b" strokeWidth="1.5" /> {/* Red left */}
+                    <polygon points="0,0 50,50 100,0" fill="#16A34A" stroke="#1e293b" strokeWidth="1.5" /> {/* Green top */}
+                    <polygon points="100,0 50,50 100,100" fill="#EAB308" stroke="#1e293b" strokeWidth="1.5" /> {/* Yellow right */}
+                    <polygon points="0,100 50,50 100,100" fill="#2563EB" stroke="#1e293b" strokeWidth="1.5" /> {/* Blue bottom */}
                     
-                    {/* Sheen glass effect on center */}
-                    <rect width="100" height="100" fill="url(#glossOver)" pointerEvents="none" />
-                    
-                    {/* Center joint plastic outline */}
-                    <circle cx="50" cy="50" r="13" fill="#ffffff" className="shadow-md" />
-                    <circle cx="50" cy="50" r="9" fill="#ffd700" className="animate-pulse" />
-                    <circle cx="50" cy="50" r="4" fill="#ffffff" />
+                    {/* Minimal central joint */}
+                    <circle cx="50" cy="50" r="4" fill="#ffffff" stroke="#1e293b" strokeWidth="1" />
                   </svg>
                 </div>
-
+ 
                 {/* 6. RENDER 72 TRACK CELLS INDIVIDUALLY */}
                 {Array.from({ length: 15 }).map((_, r) => {
                   return Array.from({ length: 15 }).map((_, c) => {
@@ -1603,128 +1639,146 @@ export const LudoClassicGame: React.FC<LudoClassicGameProps> = ({
                     const isBaseYellow = r > 8 && c > 8;
                     const isBaseBlue = r > 8 && c < 6;
                     const isCenter = r >= 6 && r <= 8 && c >= 6 && c <= 8;
-
+ 
                     if (isBaseRed || isBaseGreen || isBaseYellow || isBaseBlue || isCenter) return null;
-
-                    // Identify colors for home stretches or starts
-                    let cellBg = isDark ? 'bg-slate-900 border-transparent' : 'bg-white border-transparent shadow-[0_1px_2px_rgba(0,0,0,0.02)]';
+ 
+                    // Flat white background cell with crisp solid border
+                    let cellStyle: React.CSSProperties = {
+                      backgroundColor: '#FFFFFF',
+                      border: '0.75px solid #475569',
+                    };
                     let hasStar = false;
-
+ 
                     const key = `${r}_${c}`;
-
+ 
                     // Red home stretch
                     if (r === 7 && c >= 1 && c <= 5) {
-                      cellBg = activeTheme.red.cell;
+                      cellStyle = {
+                        backgroundColor: '#DC2626',
+                        border: '0.75px solid #1e293b',
+                      };
                     }
                     // Green home stretch
                     else if (c === 7 && r >= 1 && r <= 5) {
-                      cellBg = activeTheme.green.cell;
+                      cellStyle = {
+                        backgroundColor: '#16A34A',
+                        border: '0.75px solid #1e293b',
+                      };
                     }
                     // Yellow home stretch
                     else if (r === 7 && c >= 9 && c <= 13) {
-                      cellBg = activeTheme.yellow.cell;
+                      cellStyle = {
+                        backgroundColor: '#EAB308',
+                        border: '0.75px solid #1e293b',
+                      };
                     }
                     // Blue home stretch
                     else if (c === 7 && r >= 9 && r <= 13) {
-                      cellBg = activeTheme.blue.cell;
+                      cellStyle = {
+                        backgroundColor: '#2563EB',
+                        border: '0.75px solid #1e293b',
+                      };
                     }
-
+ 
                     // Starting cells
                     else if (r === 6 && c === 1) {
-                      cellBg = `${activeTheme.red.cell} ring-2 ${activeTheme.red.startRing}`; // Red Start
+                      cellStyle = {
+                        backgroundColor: '#DC2626',
+                        border: '1.2px solid #1e293b',
+                      };
                     }
                     else if (r === 1 && c === 8) {
-                      cellBg = `${activeTheme.green.cell} ring-2 ${activeTheme.green.startRing}`; // Green Start
+                      cellStyle = {
+                        backgroundColor: '#16A34A',
+                        border: '1.2px solid #1e293b',
+                      };
                     }
                     else if (r === 8 && c === 13) {
-                      cellBg = `${activeTheme.yellow.cell} ring-2 ${activeTheme.yellow.startRing}`; // Yellow Start
+                      cellStyle = {
+                        backgroundColor: '#EAB308',
+                        border: '1.2px solid #1e293b',
+                      };
                     }
                     else if (r === 13 && c === 6) {
-                      cellBg = `${activeTheme.blue.cell} ring-2 ${activeTheme.blue.startRing}`; // Blue Start
+                      cellStyle = {
+                        backgroundColor: '#2563EB',
+                        border: '1.2px solid #1e293b',
+                      };
                     }
-
+ 
                     // Star safe zones
-                    else if (SAFE_COORDS.includes(key)) {
+                    else if (SAFE_COORDS.includes(key) || ['8_1', '1_6', '6_13', '13_8'].includes(key)) {
                       hasStar = true;
-                      cellBg = isDark ? 'bg-amber-950/20' : 'bg-amber-50';
                     }
-
+ 
                     return (
                       <div
                         key={`cell-${r}-${c}`}
-                        className={`rounded-[7px] m-[1.5px] text-[6px] flex items-center justify-center font-bold relative transition-all duration-300 shadow-[inset_0_1.5px_2.5px_rgba(0,0,0,0.03)] border border-slate-200/25 dark:border-slate-800/10 ${cellBg}`}
-                        style={{ gridRow: r + 1, gridColumn: c + 1 }}
+                        className="m-0 text-[6px] flex items-center justify-center font-bold relative"
+                        style={{ 
+                          gridRow: r + 1, 
+                          gridColumn: c + 1,
+                          ...cellStyle,
+                        }}
                       >
                         {hasStar && (
-                          <div className="absolute inset-0 flex items-center justify-center bg-amber-500/10 dark:bg-amber-400/10 rounded-[6px]">
-                            <Star size={11} className="text-amber-500 fill-amber-400 filter drop-shadow-[0_1px_1.5px_rgba(245,158,11,0.45)]" />
+                          <div className="absolute inset-0 flex items-center justify-center bg-transparent">
+                            <Star 
+                              size={11} 
+                              className="text-amber-500 fill-amber-400 stroke-slate-800 stroke-[1.5]" 
+                            />
                           </div>
                         )}
                       </div>
                     );
                   });
                 })}
-
+ 
               </div>
-
-              {/* FLOATING ABSOLUTE POSITIONED TOKENS (WITH SPRING ANIMATION) */}
+ 
+              {/* FLOATING ABSOLUTE POSITIONED TOKENS */}
               {activePlayers.map((color) => {
                 const steps = tokenPositions[color] || [];
                 const isMyTurn = currentActiveColor === color;
                 const playables = hasRolled ? getPlayableTokens(color, diceValue) : [];
-
+ 
                 return steps.map((step, index) => {
                   const coord = getTokenPosition(color, step, index);
                   const r = coord[0];
                   const c = coord[1];
-
+ 
                   // Determine stack position offsets inside the cell
                   const coordKey = `${r}_${c}`;
                   const group = cellGroups[coordKey] || [];
                   const N = group.length;
                   const groupIndex = group.findIndex(item => item.color === color && item.index === index);
-
+ 
                   // Base coordinates per cell
                   const leftBase = c * (100 / 15);
                   const topBase = r * (100 / 15);
-
-                  // Quadrant stack offsets
+ 
+                  // Stack offsets
                   let dx = 0;
                   let dy = 0;
                   let scale = 0.85;
-
+ 
                   if (N > 1 && step > 0 && step < 57) {
-                    scale = 0.52; // shrink to fit
+                    scale = 0.55; // shrink to fit
                     const angle = (groupIndex / N) * 2 * Math.PI;
                     dx = Math.cos(angle) * 1.5; // percent offset
                     dy = Math.sin(angle) * 1.5;
                   }
-
+ 
                   const canThisMove = isMyTurn && hasRolled && playables.includes(index) && !isCurrentBot;
-
-                  // Precise 3D colors for realistic glass/claymorphic tokens
                   const colorKey = color as 'red' | 'green' | 'yellow' | 'blue';
+                  
                   const hexColor = {
-                    red: '#ef4444',
-                    green: '#10b981',
-                    yellow: '#eab308',
-                    blue: '#3b82f6',
+                    red: '#DC2626',
+                    green: '#16A34A',
+                    yellow: '#EAB308',
+                    blue: '#2563EB',
                   }[colorKey];
-
-                  const highlightColor = {
-                    red: '#fca5a5',
-                    green: '#6ee7b7',
-                    yellow: '#fde047',
-                    blue: '#93c5fd',
-                  }[colorKey];
-
-                  const darkGradientColor = {
-                    red: '#991b1b',
-                    green: '#065f46',
-                    yellow: '#854d0e',
-                    blue: '#1e40af',
-                  }[colorKey];
-
+ 
                   return (
                     <motion.div
                       key={`token-${color}-${index}`}
@@ -1734,123 +1788,58 @@ export const LudoClassicGame: React.FC<LudoClassicGameProps> = ({
                           moveToken(color, index, diceValue);
                         }
                       }}
-                      className={`absolute rounded-full z-20 flex items-center justify-center cursor-pointer ${
-                        canThisMove ? 'ring-[3px] ring-indigo-500 animate-bounce cursor-pointer [animation-duration:0.6s]' : ''
-                      }`}
+                      className="absolute z-20 flex items-center justify-center cursor-pointer"
                       style={{
-                        width: '6.2%',
-                        height: '6.2%',
-                        left: `${leftBase + dx + 0.23}%`,
-                        top: `${topBase + dy + 0.23}%`,
-                        background: `radial-gradient(circle at 35% 35%, ${highlightColor} 0%, ${hexColor} 50%, ${darkGradientColor} 100%)`,
-                        boxShadow: `0 4px 6px rgba(0,0,0,0.3), inset 0 2px 3px rgba(255,255,255,0.65), inset 0 -2px 3px rgba(0,0,0,0.4)`
+                        width: '5.6%',
+                        height: '5.6%',
+                        left: `${leftBase + dx + 0.5}%`,
+                        top: `${topBase + dy + 0.5}%`,
                       }}
                       animate={{
                         scale: canThisMove ? 1.25 : scale,
+                        y: canThisMove ? [0, -4, 0] : 0,
                       }}
-                      transition={{ type: 'spring', stiffness: 220, damping: 18 }}
+                      transition={{ 
+                        scale: { type: 'spring', stiffness: 220, damping: 18 },
+                        y: canThisMove ? { repeat: Infinity, duration: 0.6, ease: 'easeInOut' } : {}
+                      }}
                     >
-                      {/* Realistic glossy sheen ring */}
-                      <div className="absolute inset-[1.5px] rounded-full border border-white/40 pointer-events-none" />
+                      {/* Beautiful, High-Contrast Concentric Ring Circular Chip */}
+                      <div 
+                        className="w-full h-full rounded-full flex items-center justify-center transition-all shadow-md relative border-2 border-white"
+                        style={{
+                          backgroundColor: hexColor,
+                          boxShadow: '0 3px 5px rgba(0,0,0,0.3)',
+                        }}
+                      >
+                        {/* Concentric inner ring */}
+                        <div className="w-[60%] h-[60%] rounded-full border border-white/50 flex items-center justify-center">
+                          {/* Center point */}
+                          <div className="w-1.5 h-1.5 rounded-full bg-white opacity-80" />
+                        </div>
+ 
+                        {/* Interactive Selection Helper Ring (Pulsing) */}
+                        {canThisMove && (
+                          <div className="absolute -inset-1.5 rounded-full border-2 border-white animate-ping opacity-75" />
+                        )}
+                      </div>
                       
-                      {/* Core circle */}
-                      {step === 57 ? (
-                        <span className="text-[7.5px] font-black pointer-events-none drop-shadow">👑</span>
-                      ) : (
-                        <div className="w-2.5 h-2.5 rounded-full bg-white/95 shadow-sm pointer-events-none flex items-center justify-center">
-                          <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: hexColor }} />
+                      {/* Crown icon on finished tokens */}
+                      {step === 57 && (
+                        <div className="absolute top-[-10px] text-[10px] drop-shadow-[0_1.5px_2px_rgba(0,0,0,0.3)] animate-bounce [animation-duration:1.5s]">
+                          👑
                         </div>
                       )}
                     </motion.div>
                   );
                 });
               })}
-
+ 
             </div>
           </div>
 
-          {/* LOWER CONTROLS & HUD AREA */}
-          <div className={`p-4 shrink-0 transition-colors border-t flex flex-col items-center justify-center space-y-4 ${activeTheme.headerBgClass}`}>
-            
-            {/* Perfectly Centered Interactive Dice */}
-            <div className="flex flex-col items-center justify-center space-y-2">
-              <motion.button
-                disabled={isRolling || hasRolled || isCurrentBot}
-                onClick={rollDice}
-                className="relative w-20 h-20 rounded-[24px] flex items-center justify-center transition-all cursor-pointer overflow-visible"
-                style={{
-                  background: `linear-gradient(135deg, ${activeColorTheme.hex}, ${activeColorTheme.hex}dd)`,
-                  boxShadow: `0 8px 24px ${activeColorTheme.hex}50, inset 0 2px 4px rgba(255,255,255,0.25)`,
-                  border: `3px solid ${activeColorTheme.hex}25`,
-                }}
-                animate={isRolling ? { 
-                  rotate: [0, 90, -180, 270, 360], 
-                  x: [0, -12, 14, -8, 10, -5, 0], 
-                  y: [0, -15, 12, -18, 8, -6, 0], 
-                  scale: [1, 1.15, 0.88, 1.12, 0.95, 1.05, 1] 
-                } : {}}
-                transition={isRolling ? { duration: 0.6, ease: "easeInOut" } : { type: "spring", stiffness: 350, damping: 15 }}
-                whileHover={{ scale: isRolling || hasRolled || isCurrentBot ? 1 : 1.05 }}
-                whileTap={{ scale: isRolling || hasRolled || isCurrentBot ? 1 : 0.95 }}
-              >
-                {/* 3D Dice Face Container */}
-                <motion.div 
-                  className="grid grid-cols-3 gap-1 w-11 h-11 p-1.5 bg-white rounded-[14px] shadow-[0_5px_10px_rgba(0,0,0,0.18),inset_0_1.5px_2px_rgba(0,0,0,0.12)] border border-slate-100 select-none pointer-events-none"
-                  animate={isRolling ? { 
-                    rotateY: [0, 180, 360], 
-                    rotateX: [0, -180, 360],
-                    scale: [1, 0.82, 1.15, 1]
-                  } : {}}
-                  transition={isRolling ? { duration: 0.6, ease: "linear" } : {}}
-                >
-                  {(() => {
-                    const activeDots = {
-                      1: [4],
-                      2: [0, 8],
-                      3: [0, 4, 8],
-                      4: [0, 2, 6, 8],
-                      5: [0, 2, 4, 6, 8],
-                      6: [0, 2, 3, 5, 6, 8]
-                    }[diceValue] || [];
-                    return Array.from({ length: 9 }).map((_, idx) => {
-                      const isActive = activeDots.includes(idx);
-                      return (
-                        <div key={idx} className="flex items-center justify-center">
-                          {isActive && (
-                            <div 
-                              className="w-2.5 h-2.5 rounded-full shadow-[inset_0_1.5px_1.5px_rgba(0,0,0,0.3)]"
-                              style={{ backgroundColor: activeColorTheme.hex }}
-                            />
-                          )}
-                        </div>
-                      );
-                    });
-                  })()}
-                </motion.div>
-
-                {/* Subtle rolling halo trail */}
-                {isRolling && (
-                  <span className="absolute inset-0 rounded-[24px] border border-white/40 animate-ping opacity-75" style={{ animationDuration: '0.4s' }} />
-                )}
-              </motion.button>
-
-              <span className="text-[10px] font-black uppercase tracking-[0.14em] text-slate-400 dark:text-slate-500">
-                {isRolling ? 'ROLLING...' : isCurrentBot ? 'BOT PLAYING' : hasRolled ? 'TAP TOKEN' : 'TAP TO ROLL'}
-              </span>
-            </div>
-
-            {/* Quick Actions Footer */}
-            <div className="w-full flex items-center justify-center border-t pt-3 border-slate-100 dark:border-slate-800">
-              <button
-                onClick={handleRestart}
-                className="flex items-center gap-1.5 text-[10px] font-bold text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors cursor-pointer"
-              >
-                <RotateCcw size={11} />
-                <span>Restart Session</span>
-              </button>
-            </div>
-
-          </div>
+          {/* Completely Silent Wordless Bottom Padding Bar to Balance Height */}
+          <div className="h-4 shrink-0" />
 
         </div>
       )}
