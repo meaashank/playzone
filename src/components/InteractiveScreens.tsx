@@ -45,7 +45,9 @@ import { TicTacToeGame } from './TicTacToeGame';
 import { GroupPlay } from './GroupPlay';
 import { LudoClassicGame } from './LudoClassicGame';
 import { SnakeGame } from './SnakeGame';
+import { AiChatScreen } from './AiChatScreen';
 import { triggerVibration } from '../utils/vibration';
+import SoundEngine from '../utils/audio';
 
 interface ScreensProps {
   currentScreen: ScreenId;
@@ -124,6 +126,48 @@ export const InteractiveScreens: React.FC<ScreensProps> = ({
     setVibrateTestRipple(null);
   }, [settings.vibrationEnabled, settings.vibrationIntensity]);
 
+  // Trigger screen transition sound effects
+  useEffect(() => {
+    if (currentScreen === 'splash') return;
+    if (currentScreen === 'home') {
+      SoundEngine.play('popup_close');
+    } else {
+      SoundEngine.play('popup_open');
+    }
+  }, [currentScreen]);
+
+  // Global automatic UI click/tap sound generator
+  useEffect(() => {
+    const handleGlobalClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      const interactive = target.closest('button, a, input, select, textarea, [role="button"], .cursor-pointer');
+      if (!interactive) return;
+
+      // Detect if it is a back action
+      const isBackBtn = interactive.classList.contains('back-btn') || 
+                        interactive.id?.includes('back') || 
+                        interactive.getAttribute('aria-label')?.toLowerCase().includes('back') ||
+                        interactive.innerHTML.includes('ArrowLeft');
+
+      if (isBackBtn) {
+        SoundEngine.play('back');
+      } else {
+        // Play click sound with pitch variation (built into SoundEngine)
+        SoundEngine.play('click');
+      }
+
+      // Synchronize with haptic feedback where appropriate
+      if (settings.vibrationEnabled) {
+        triggerVibration(settings.vibrationIntensity || 'tick');
+      }
+    };
+
+    window.addEventListener('click', handleGlobalClick, { capture: true });
+    return () => {
+      window.removeEventListener('click', handleGlobalClick, { capture: true });
+    };
+  }, [settings.vibrationEnabled, settings.vibrationIntensity]);
+
   const [transitioning, setTransitioning] = useState(false);
 
   // Trigger brief screen transition loading state
@@ -178,8 +222,10 @@ export const InteractiveScreens: React.FC<ScreensProps> = ({
 
       if (nextLevel > prev.level) {
         onShowNotificationBanner('🎉 LEVEL UP!', `Congratulations, you reached Level ${nextLevel}!`);
+        SoundEngine.play('level_up');
       } else {
         onShowNotificationBanner('⭐ Experience Earned', `You gained ${xpReward} XP & 25 Stars!`);
+        SoundEngine.play('coin');
       }
 
       return {
@@ -450,6 +496,22 @@ export const InteractiveScreens: React.FC<ScreensProps> = ({
               <span className={`text-xs font-black tracking-tight font-mono ${isDark ? 'text-amber-400' : 'text-amber-700'}`}>{profile.coins}</span>
             </div>
 
+            {/* Talk to AI Sparkles Button with premium pulsing visual glow effect */}
+            <button
+              id="ai-talk-button"
+              onClick={() => {
+                triggerVibration('medium');
+                setCurrentScreen('ai-chat');
+              }}
+              title="Talk to AI"
+              className="relative w-8 h-8 rounded-full flex items-center justify-center cursor-pointer overflow-hidden group shadow-md transition-all active:scale-95"
+            >
+              {/* Pulsing beautiful glowing background */}
+              <span className="absolute inset-0 bg-gradient-to-tr from-[#6C5CE7] via-[#8C7AE6] to-pink-500 rounded-full group-hover:scale-110 transition-all duration-300" />
+              <span className="absolute inset-0.5 bg-slate-950/20 rounded-full group-hover:opacity-0 transition-opacity duration-300" />
+              <Sparkles size={14} className="text-white relative z-10 animate-pulse" />
+            </button>
+
             {/* Settings Shortcut Button */}
             <button
               id="settings-shortcut"
@@ -488,20 +550,6 @@ export const InteractiveScreens: React.FC<ScreensProps> = ({
             </div>
           </div>
 
-          {/* Banner area / Greeting */}
-          <div className="bg-gradient-to-r from-blue-500 to-indigo-600 rounded-3xl p-4 text-white shadow-sm relative overflow-hidden">
-            {/* Background controller shapes */}
-            <div className="absolute right-[-10px] bottom-[-10px] opacity-10 rotate-12">
-              <svg viewBox="0 0 100 100" className="w-24 h-24 fill-white">
-                <path d="M20 50 C20 40, 30 35, 50 35 C70 35, 80 40, 80 50 C80 60, 72 75, 62 75 C58 75, 56 70, 50 70 C44 70, 42 75, 38 75 C28 75, 20 60, 20 50 Z" />
-              </svg>
-            </div>
-
-            <span className="bg-white/20 text-white font-extrabold text-[9px] px-2 py-0.5 rounded-full tracking-wider uppercase">Gamer Hub</span>
-            <h3 className="text-base font-black tracking-tight mt-1.5">Choose a Game! 🚀</h3>
-            <p className="text-[10px] text-blue-100 font-medium leading-relaxed max-w-[190px] mt-0.5">Explore our kids-safe, ad-free flat puzzle & tabletop collections.</p>
-          </div>
-
           {/* Playful invitation card to Group Play */}
           <div
             onClick={() => setCurrentScreen('group-play')}
@@ -509,11 +557,11 @@ export const InteractiveScreens: React.FC<ScreensProps> = ({
           >
             <div className="flex-1 min-w-0 pr-3 z-10">
               <span className="bg-white/20 text-white font-extrabold text-[8px] px-2 py-0.5 rounded-full tracking-wider uppercase">Cousins Meetup! 👥</span>
-              <h4 className="text-xs font-black tracking-tight mt-1">Spin the Bottle</h4>
-              <p className="text-[9px] text-indigo-50 leading-tight mt-0.5">Tactile drag-and-flick spinner with physics & chime chords.</p>
+              <h4 className="text-xs font-black tracking-tight mt-1">Party Game Wheel</h4>
+              <p className="text-[9px] text-indigo-50 leading-tight mt-0.5">Interactive decision wheel with physics-based spins, custom categories, truth-or-dare, and fun group challenges!</p>
             </div>
             <div className="w-10 h-10 rounded-2xl bg-white/20 flex items-center justify-center text-xl shrink-0 z-10">
-              🍼
+              🎡
             </div>
           </div>
 
@@ -1663,6 +1711,7 @@ export const InteractiveScreens: React.FC<ScreensProps> = ({
             soundEnabled={settings.soundEnabled}
             onAddCoins={(amount) => {
               setProfile(p => ({ ...p, coins: p.coins + amount }));
+              SoundEngine.play('coin');
             }}
           />
         );
@@ -1690,6 +1739,7 @@ export const InteractiveScreens: React.FC<ScreensProps> = ({
             soundEnabled={settings.soundEnabled}
             onAddCoins={(amount) => {
               setProfile(p => ({ ...p, coins: p.coins + amount }));
+              SoundEngine.play('coin');
             }}
             onAddXP={(amount) => {
               setProfile(p => {
@@ -1699,11 +1749,21 @@ export const InteractiveScreens: React.FC<ScreensProps> = ({
                 if (nextLevel > p.level) {
                   setTimeout(() => {
                     onShowNotificationBanner('🎉 LEVEL UP!', `Congratulations, you reached Level ${nextLevel}!`);
+                    SoundEngine.play('level_up');
                   }, 400);
+                } else {
+                  SoundEngine.play('coin');
                 }
                 return { ...p, level: nextLevel, xp: finalXp };
               });
             }}
+          />
+        );
+      case 'ai-chat':
+        return (
+          <AiChatScreen
+            onBack={() => setCurrentScreen('home')}
+            theme={theme}
           />
         );
       default:

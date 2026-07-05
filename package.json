@@ -4,20 +4,23 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite --port=3000 --host=0.0.0.0",
-    "build": "vite build && npx cap sync",
+    "dev": "tsx server.ts",
+    "build": "vite build && esbuild server.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=dist/server.cjs && npx cap sync",
     "preview": "vite preview",
     "clean": "rm -rf dist server.js android",
     "lint": "tsc --noEmit",
     "android:sync": "npx cap sync",
-    "android:copy": "npx cap copy android"
+    "android:copy": "npx cap copy android",
+    "start": "node dist/server.cjs"
   },
   "dependencies": {
     "@capacitor/android": "^8.4.1",
     "@capacitor/core": "^8.4.1",
     "@capacitor/haptics": "^8.0.2",
+    "@google/genai": "^2.10.0",
     "@tailwindcss/vite": "^4.1.14",
     "@vitejs/plugin-react": "^5.0.4",
+    "express": "^5.2.1",
     "lucide-react": "^0.546.0",
     "motion": "^12.23.24",
     "react": "^19.0.1",
@@ -26,9 +29,12 @@
   },
   "devDependencies": {
     "@capacitor/cli": "^8.4.1",
+    "@types/express": "^5.0.6",
     "@types/node": "^22.14.0",
     "autoprefixer": "^10.4.21",
+    "esbuild": "^0.28.1",
     "tailwindcss": "^4.1.14",
+    "tsx": "^4.23.0",
     "typescript": "~5.8.2",
     "vite": "^6.2.3"
   }

@@ -6,6 +6,7 @@
 import React, { useState, useEffect } from 'react';
 import { ScreenId, UserProfile, AppSettings } from './types';
 import { InteractiveScreens } from './components/InteractiveScreens';
+import SoundEngine from './utils/audio';
 
 export default function App() {
   // Global States
@@ -41,6 +42,26 @@ export default function App() {
     language: 'English',
     landscapeMode: false
   });
+
+  // Configure Sound Engine
+  useEffect(() => {
+    SoundEngine.configure(settings.soundEnabled, settings.musicEnabled);
+  }, [settings.soundEnabled, settings.musicEnabled]);
+
+  // Audio setup on first interaction
+  useEffect(() => {
+    const handleFirstInteraction = () => {
+      SoundEngine.play('popup_open');
+      window.removeEventListener('click', handleFirstInteraction);
+      window.removeEventListener('touchstart', handleFirstInteraction);
+    };
+    window.addEventListener('click', handleFirstInteraction);
+    window.addEventListener('touchstart', handleFirstInteraction);
+    return () => {
+      window.removeEventListener('click', handleFirstInteraction);
+      window.removeEventListener('touchstart', handleFirstInteraction);
+    };
+  }, []);
 
   // Toast banner state
   const [toast, setToast] = useState<{ title: string; message: string; show: boolean }>({

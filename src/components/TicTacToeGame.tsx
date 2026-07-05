@@ -27,161 +27,35 @@ import {
   Crown
 } from 'lucide-react';
 import { triggerVibration } from '../utils/vibration';
+import SoundEngine from '../utils/audio';
 
 // Synthetic sound synthesizer using Web Audio API to avoid external assets.
 class GameAudio {
-  private static ctx: AudioContext | null = null;
-
-  private static getContext() {
-    if (!this.ctx) {
-      // @ts-ignore
-      const AudioCtx = window.AudioContext || window.webkitAudioContext;
-      if (AudioCtx) {
-        this.ctx = new AudioCtx();
-      }
-    }
-    if (this.ctx && this.ctx.state === 'suspended') {
-      this.ctx.resume();
-    }
-    return this.ctx;
-  }
-
   static play(type: 'click' | 'placeX' | 'placeO' | 'victory' | 'draw' | 'defeat' | 'settings', enabled: boolean) {
     if (!enabled) return;
-    const ctx = this.getContext();
-    if (!ctx) return;
-
     try {
-      const now = ctx.currentTime;
       switch (type) {
-        case 'click': {
-          const osc = ctx.createOscillator();
-          const gain = ctx.createGain();
-          osc.connect(gain);
-          gain.connect(ctx.destination);
-          
-          osc.type = 'sine';
-          osc.frequency.setValueAtTime(800, now);
-          osc.frequency.exponentialRampToValueAtTime(400, now + 0.08);
-          
-          gain.gain.setValueAtTime(0.12, now);
-          gain.gain.linearRampToValueAtTime(0.01, now + 0.08);
-          
-          osc.start(now);
-          osc.stop(now + 0.08);
+        case 'placeX':
+          SoundEngine.play('tictactoe_x');
           break;
-        }
-        case 'settings': {
-          const osc = ctx.createOscillator();
-          const gain = ctx.createGain();
-          osc.connect(gain);
-          gain.connect(ctx.destination);
-          
-          osc.type = 'triangle';
-          osc.frequency.setValueAtTime(440, now);
-          osc.frequency.setValueAtTime(660, now + 0.08);
-          
-          gain.gain.setValueAtTime(0.1, now);
-          gain.gain.linearRampToValueAtTime(0.01, now + 0.16);
-          
-          osc.start(now);
-          osc.stop(now + 0.16);
+        case 'placeO':
+          SoundEngine.play('tictactoe_o');
           break;
-        }
-        case 'placeX': {
-          const osc = ctx.createOscillator();
-          const gain = ctx.createGain();
-          osc.connect(gain);
-          gain.connect(ctx.destination);
-          
-          osc.type = 'sine';
-          osc.frequency.setValueAtTime(280, now);
-          osc.frequency.exponentialRampToValueAtTime(700, now + 0.1);
-          
-          gain.gain.setValueAtTime(0.15, now);
-          gain.gain.linearRampToValueAtTime(0.01, now + 0.1);
-          
-          osc.start(now);
-          osc.stop(now + 0.1);
+        case 'victory':
+          SoundEngine.play('win');
           break;
-        }
-        case 'placeO': {
-          const osc = ctx.createOscillator();
-          const gain = ctx.createGain();
-          osc.connect(gain);
-          gain.connect(ctx.destination);
-          
-          osc.type = 'sine';
-          osc.frequency.setValueAtTime(523.25, now); // C5
-          osc.frequency.exponentialRampToValueAtTime(659.25, now + 0.12); // E5
-          
-          gain.gain.setValueAtTime(0.15, now);
-          gain.gain.linearRampToValueAtTime(0.01, now + 0.12);
-          
-          osc.start(now);
-          osc.stop(now + 0.12);
+        case 'defeat':
+          SoundEngine.play('lose');
           break;
-        }
-        case 'victory': {
-          const notes = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6
-          notes.forEach((freq, idx) => {
-            const osc = ctx.createOscillator();
-            const gain = ctx.createGain();
-            osc.connect(gain);
-            gain.connect(ctx.destination);
-            
-            osc.type = 'triangle';
-            osc.frequency.setValueAtTime(freq, now + idx * 0.08);
-            
-            gain.gain.setValueAtTime(0.12, now + idx * 0.08);
-            gain.gain.exponentialRampToValueAtTime(0.01, now + idx * 0.08 + 0.25);
-            
-            osc.start(now + idx * 0.08);
-            osc.stop(now + idx * 0.08 + 0.3);
-          });
+        case 'draw':
+          SoundEngine.play('back');
           break;
-        }
-        case 'defeat': {
-          const osc = ctx.createOscillator();
-          const gain = ctx.createGain();
-          osc.connect(gain);
-          gain.connect(ctx.destination);
-          
-          osc.type = 'sawtooth';
-          osc.frequency.setValueAtTime(261.63, now); // C4
-          osc.frequency.exponentialRampToValueAtTime(130.81, now + 0.35); // C3
-          
-          gain.gain.setValueAtTime(0.08, now);
-          gain.gain.linearRampToValueAtTime(0.01, now + 0.35);
-          
-          osc.start(now);
-          osc.stop(now + 0.35);
+        case 'settings':
+          SoundEngine.play('toggle_on');
           break;
-        }
-        case 'draw': {
-          const osc1 = ctx.createOscillator();
-          const osc2 = ctx.createOscillator();
-          const gain = ctx.createGain();
-          
-          osc1.connect(gain);
-          osc2.connect(gain);
-          gain.connect(ctx.destination);
-          
-          osc1.type = 'sine';
-          osc2.type = 'sine';
-          
-          osc1.frequency.setValueAtTime(329.63, now); // E4
-          osc2.frequency.setValueAtTime(339.63, now); // Slightly detuned
-          
-          gain.gain.setValueAtTime(0.12, now);
-          gain.gain.linearRampToValueAtTime(0.01, now + 0.2);
-          
-          osc1.start(now);
-          osc2.start(now);
-          osc1.stop(now + 0.2);
-          osc2.stop(now + 0.2);
+        default:
+          SoundEngine.play('click');
           break;
-        }
       }
     } catch (e) {
       console.warn('Web Audio failure', e);

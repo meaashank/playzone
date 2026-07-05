@@ -21,102 +21,29 @@ import {
   Timer
 } from 'lucide-react';
 import { triggerVibration } from '../utils/vibration';
+import SoundEngine from '../utils/audio';
 
 // --- SOUND SYNTHESIZER ---
 class SnakeAudio {
-  private static ctx: AudioContext | null = null;
-
-  private static getContext() {
-    if (!this.ctx) {
-      // @ts-ignore
-      const AudioCtx = window.AudioContext || window.webkitAudioContext;
-      if (AudioCtx) this.ctx = new AudioCtx();
-    }
-    if (this.ctx && this.ctx.state === 'suspended') {
-      this.ctx.resume();
-    }
-    return this.ctx;
-  }
-
   static play(type: 'click' | 'eat' | 'boost' | 'crash' | 'victory', enabled: boolean) {
     if (!enabled) return;
-    const ctx = this.getContext();
-    if (!ctx) return;
-
     try {
-      const now = ctx.currentTime;
       switch (type) {
-        case 'click': {
-          const osc = ctx.createOscillator();
-          const gain = ctx.createGain();
-          osc.connect(gain);
-          gain.connect(ctx.destination);
-          osc.frequency.setValueAtTime(600, now);
-          osc.frequency.exponentialRampToValueAtTime(250, now + 0.06);
-          gain.gain.setValueAtTime(0.08, now);
-          gain.gain.linearRampToValueAtTime(0.01, now + 0.06);
-          osc.start(now);
-          osc.stop(now + 0.06);
+        case 'eat':
+          SoundEngine.play('snake_eat');
           break;
-        }
-        case 'eat': {
-          // Double chime chord
-          [523.25, 659.25].forEach((freq, idx) => {
-            const osc = ctx.createOscillator();
-            const gain = ctx.createGain();
-            osc.connect(gain);
-            gain.connect(ctx.destination);
-            osc.type = 'sine';
-            osc.frequency.setValueAtTime(freq, now + idx * 0.06);
-            gain.gain.setValueAtTime(0.06, now + idx * 0.06);
-            gain.gain.exponentialRampToValueAtTime(0.005, now + idx * 0.06 + 0.15);
-            osc.start(now + idx * 0.06);
-            osc.stop(now + idx * 0.06 + 0.15);
-          });
+        case 'boost':
+          SoundEngine.play('snake_boost');
           break;
-        }
-        case 'boost': {
-          const osc = ctx.createOscillator();
-          const gain = ctx.createGain();
-          osc.connect(gain);
-          gain.connect(ctx.destination);
-          osc.type = 'triangle';
-          osc.frequency.setValueAtTime(150, now);
-          osc.frequency.exponentialRampToValueAtTime(320, now + 0.1);
-          gain.gain.setValueAtTime(0.05, now);
-          gain.gain.linearRampToValueAtTime(0.005, now + 0.1);
-          osc.start(now);
-          osc.stop(now + 0.1);
+        case 'crash':
+          SoundEngine.play('snake_crash');
           break;
-        }
-        case 'crash': {
-          const osc = ctx.createOscillator();
-          const gain = ctx.createGain();
-          osc.connect(gain);
-          gain.connect(ctx.destination);
-          osc.type = 'sawtooth';
-          osc.frequency.setValueAtTime(160, now);
-          osc.frequency.linearRampToValueAtTime(30, now + 0.4);
-          gain.gain.setValueAtTime(0.2, now);
-          gain.gain.exponentialRampToValueAtTime(0.01, now + 0.4);
-          osc.start(now);
-          osc.stop(now + 0.4);
+        case 'victory':
+          SoundEngine.play('win');
           break;
-        }
-        case 'victory': {
-          [261.63, 329.63, 392.0, 523.25].forEach((freq, idx) => {
-            const osc = ctx.createOscillator();
-            const gain = ctx.createGain();
-            osc.connect(gain);
-            gain.connect(ctx.destination);
-            osc.frequency.setValueAtTime(freq, now + idx * 0.08);
-            gain.gain.setValueAtTime(0.08, now + idx * 0.08);
-            gain.gain.exponentialRampToValueAtTime(0.005, now + idx * 0.08 + 0.25);
-            osc.start(now + idx * 0.08);
-            osc.stop(now + idx * 0.08 + 0.25);
-          });
+        default:
+          SoundEngine.play('click');
           break;
-        }
       }
     } catch (e) {
       console.warn('Audio Context ignored:', e);
