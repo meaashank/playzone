@@ -12,27 +12,32 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-          cache: 'npm'
-      - name: Install dependencies
-        run: npm ci
-      - name: Build web assets and sync to Android
-        run: npm run build
+
       - name: Set up Java 21
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '21'
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build web assets and sync to Android
+        run: npm run build
+
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
+
       - name: Install Android SDK components
         run: |
           sdkmanager --install "platform-tools" "platforms;android-36" "build-tools;36.0.0"
-      - name: Grant execute permission for gradlew
-        run: chmod +x android/gradlew
+
       - name: Ensure Gradle Wrapper is valid
         run: |
           JAR_PATH="android/gradle/wrapper/gradle-wrapper.jar"
@@ -44,22 +49,57 @@ jobs:
           fi
           
           if [ "$VALID" = false ]; then
-            echo "⚠️ Gradle wrapper JAR is missing or corrupted! Downloading a clean one..."
+            echo "⚠️ Gradle wrapper JAR is missing or corrupted! Downloading a clean one matching the configured Gradle version..."
             mkdir -p android/gradle/wrapper
-            curl -L -s -S -o "$JAR_PATH" https://raw.githubusercontent.com/spring-projects/spring-boot/main/gradle/wrapper/gradle-wrapper.jar
+            
+            # Extract Gradle version from gradle-wrapper.properties
+            GRADLE_VERSION=$(grep -oE "gradle-[0-9]+\.[0-9]+(\.[0-9]+)?" android/gradle/wrapper/gradle-wrapper.properties | cut -d'-' -f2 || echo "8.14.3")
+            echo "Detected Gradle Version: $GRADLE_VERSION"
+            
+            URL_WITH_V="https://raw.githubusercontent.com/gradle/gradle/v${GRADLE_VERSION}/gradle/wrapper/gradle-wrapper.jar"
+            URL_WITHOUT_V="https://raw.githubusercontent.com/gradle/gradle/${GRADLE_VERSION}/gradle/wrapper/gradle-wrapper.jar"
+            URL_MASTER="https://raw.githubusercontent.com/gradle/gradle/master/gradle/wrapper/gradle-wrapper.jar"
+            
+            DOWNLOADED=false
+            for URL in "$URL_WITH_V" "$URL_WITHOUT_V" "$URL_MASTER"; do
+              echo "Trying to download gradle-wrapper.jar from: $URL"
+              if curl -L -s --fail -o "$JAR_PATH" "$URL"; then
+                if [ -f "$JAR_PATH" ] && unzip -t "$JAR_PATH" >/dev/null 2>&1; then
+                  echo "✅ Successfully downloaded and verified gradle-wrapper.jar from $URL"
+                  DOWNLOADED=true
+                  break
+                fi
+              fi
+            done
+            
+            if [ "$DOWNLOADED" = false ]; then
+              echo "❌ Failed to download a valid gradle-wrapper.jar from any official source!"
+              exit 1
+            fi
           else
             echo "✅ Gradle wrapper JAR is valid."
           fi
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x android/gradlew
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          validate-wrappers: false
+
       - name: Build debug APK
         run: |
           cd android
           ./gradlew assembleDebug --no-daemon --stacktrace
+
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: PlayZone-debug-apk
           path: android/app/build/outputs/apk/debug/app-debug.apk
           retention-days: 30
+
       - name: APK build summary
         run: |
           echo "✅ APK built successfully!"
