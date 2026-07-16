@@ -92,15 +92,27 @@ jobs:
         run: |
           cd android
           ./gradlew assembleDebug --no-daemon --stacktrace
+          if [ -z "$(find app/build/outputs/apk/debug -name "*.apk" 2>/dev/null)" ]; then
+            echo "❌ APK build failed - No APK files found!"
+            echo "Build outputs:"
+            find app/build/outputs -type f 2>/dev/null || echo "No build outputs directory"
+            exit 1
+          fi
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: PlayZone-debug-apk
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+          path: android/app/build/outputs/apk/debug/**/*.apk
           retention-days: 30
 
       - name: APK build summary
         run: |
-          echo "✅ APK built successfully!"
-          ls -lh android/app/build/outputs/apk/debug/app-debug.apk
+          APK_FILES=$(find android/app/build/outputs/apk/debug -name "*.apk" 2>/dev/null)
+          if [ -n "$APK_FILES" ]; then
+            echo "✅ APK built successfully!"
+            ls -lh $APK_FILES
+          else
+            echo "❌ APK file not found!"
+            exit 1
+          fi
