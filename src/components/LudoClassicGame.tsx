@@ -30,7 +30,7 @@ import {
 import { triggerVibration } from '../utils/vibration';
 import SoundEngine from '../utils/audio';
 // @ts-ignore
-import ludoBoardMockup from '../assets/images/ludo_board_mockup_1782989238218.jpg';
+import ludoBoardMockup from '../assets/images/ludo_board_mockup_1782989238218.webp';
 
 // Dynamic Audio Synthesizer for ad-free offline-first sounds
 class LudoAudio {
