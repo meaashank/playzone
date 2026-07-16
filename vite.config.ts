@@ -16,6 +16,7 @@ export default defineConfig(() => {
       minify: 'esbuild' as const,
       sourcemap: false,
       cssMinify: true,
+      emptyOutDir: true,
       assetsInlineLimit: 4096,
       rollupOptions: {
         output: {

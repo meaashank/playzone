@@ -45,6 +45,10 @@ import { TicTacToeGame } from './TicTacToeGame';
 import { GroupPlay } from './GroupPlay';
 import { LudoClassicGame } from './LudoClassicGame';
 import { SnakeGame } from './SnakeGame';
+import { EightBallPoolGame } from './EightBallPoolGame';
+import { CarromDiscGame } from './CarromDiscGame';
+import { CheckersProGame } from './CheckersProGame';
+import { SoccerShootoutGame } from './SoccerShootoutGame';
 import { AiChatScreen } from './AiChatScreen';
 import { triggerVibration } from '../utils/vibration';
 import SoundEngine from '../utils/audio';
@@ -638,6 +642,14 @@ export const InteractiveScreens: React.FC<ScreensProps> = ({
                         setCurrentScreen('ludo-classic');
                       } else if (game.id === 'game-snake') {
                         setCurrentScreen('snake-rush');
+                      } else if (game.id === 'game-8ball') {
+                        setCurrentScreen('8ball-pool');
+                      } else if (game.id === 'game-carrom') {
+                        setCurrentScreen('carrom-disc');
+                      } else if (game.id === 'game-checkers') {
+                        setCurrentScreen('checkers-pro');
+                      } else if (game.id === 'game-soccer') {
+                        setCurrentScreen('soccer-shootout');
                       } else {
                         onShowNotificationBanner(game.title, `${game.title} is coming soon in the next major release! 🎮`);
                       }
@@ -1305,6 +1317,14 @@ export const InteractiveScreens: React.FC<ScreensProps> = ({
                         setCurrentScreen('ludo-classic');
                       } else if (game.id === 'game-snake') {
                         setCurrentScreen('snake-rush');
+                      } else if (game.id === 'game-8ball') {
+                        setCurrentScreen('8ball-pool');
+                      } else if (game.id === 'game-carrom') {
+                        setCurrentScreen('carrom-disc');
+                      } else if (game.id === 'game-checkers') {
+                        setCurrentScreen('checkers-pro');
+                      } else if (game.id === 'game-soccer') {
+                        setCurrentScreen('soccer-shootout');
                       } else {
                         onShowNotificationBanner(game.title, `${game.title} is ready soon!`);
                       }
@@ -1451,6 +1471,14 @@ export const InteractiveScreens: React.FC<ScreensProps> = ({
                           setCurrentScreen('ludo-classic');
                         } else if (game.id === 'game-snake') {
                           setCurrentScreen('snake-rush');
+                        } else if (game.id === 'game-8ball') {
+                          setCurrentScreen('8ball-pool');
+                        } else if (game.id === 'game-carrom') {
+                          setCurrentScreen('carrom-disc');
+                        } else if (game.id === 'game-checkers') {
+                          setCurrentScreen('checkers-pro');
+                        } else if (game.id === 'game-soccer') {
+                          setCurrentScreen('soccer-shootout');
                         } else {
                           onShowNotificationBanner(game.title, `${game.title} is ready soon!`);
                         }
@@ -1757,6 +1785,38 @@ export const InteractiveScreens: React.FC<ScreensProps> = ({
                 return { ...p, level: nextLevel, xp: finalXp };
               });
             }}
+          />
+        );
+      case '8ball-pool':
+        return (
+          <EightBallPoolGame
+            onBack={() => setCurrentScreen('home')}
+            theme={theme}
+            soundEnabled={settings.soundEnabled}
+          />
+        );
+      case 'carrom-disc':
+        return (
+          <CarromDiscGame
+            onBack={() => setCurrentScreen('home')}
+            theme={theme}
+            soundEnabled={settings.soundEnabled}
+          />
+        );
+      case 'checkers-pro':
+        return (
+          <CheckersProGame
+            onBack={() => setCurrentScreen('home')}
+            theme={theme}
+            soundEnabled={settings.soundEnabled}
+          />
+        );
+      case 'soccer-shootout':
+        return (
+          <SoccerShootoutGame
+            onBack={() => setCurrentScreen('home')}
+            theme={theme}
+            soundEnabled={settings.soundEnabled}
           />
         );
       case 'ai-chat':

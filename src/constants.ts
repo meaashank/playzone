@@ -13,7 +13,7 @@ export const GAME_PLACEHOLDERS: GamePlaceholder[] = [
     description: 'Precision physics billard game for two players.',
     color: 'bg-blue-600',
     accentColor: 'text-blue-200',
-    isComingSoon: true,
+    isComingSoon: false,
     iconName: 'billiards',
   },
   {
@@ -43,7 +43,7 @@ export const GAME_PLACEHOLDERS: GamePlaceholder[] = [
     description: 'Flick the striker to pocket your carrom men.',
     color: 'bg-orange-600',
     accentColor: 'text-orange-200',
-    isComingSoon: true,
+    isComingSoon: false,
     iconName: 'carrom',
   },
   {
@@ -63,7 +63,7 @@ export const GAME_PLACEHOLDERS: GamePlaceholder[] = [
     description: 'Jump over opponent pieces on a checkers grid.',
     color: 'bg-red-600',
     accentColor: 'text-red-200',
-    isComingSoon: true,
+    isComingSoon: false,
     iconName: 'checkers',
   },
   {
@@ -73,7 +73,7 @@ export const GAME_PLACEHOLDERS: GamePlaceholder[] = [
     description: 'Flick and kick goals past the automated keeper.',
     color: 'bg-emerald-700',
     accentColor: 'text-emerald-200',
-    isComingSoon: true,
+    isComingSoon: false,
     iconName: 'soccer',
   },
   {

@@ -58,4 +58,8 @@ export type ScreenId =
   | 'tic-tac-toe'
   | 'ludo-classic'
   | 'snake-rush'
-  | 'ai-chat';
+  | 'ai-chat'
+  | '8ball-pool'
+  | 'carrom-disc'
+  | 'checkers-pro'
+  | 'soccer-shootout';
