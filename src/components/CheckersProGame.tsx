@@ -8,31 +8,62 @@ import { motion, AnimatePresence } from 'motion/react';
 import {
   ArrowLeft,
   RotateCcw,
-  Users,
-  Cpu,
-  Trophy,
-  Zap,
   Volume2,
   VolumeX,
-  Award,
+  Play,
+  Cpu,
+  User,
+  Trophy,
   Crown
 } from 'lucide-react';
 import { triggerVibration } from '../utils/vibration';
 import SoundEngine from '../utils/audio';
 
-interface CheckersProps {
+// Dynamic synthetic sound wrapper
+class CheckersAudio {
+  static play(type: 'click' | 'move' | 'jump' | 'king' | 'win' | 'foul', enabled: boolean) {
+    if (!enabled) return;
+    try {
+      switch (type) {
+        case 'click':
+          SoundEngine.play('click');
+          break;
+        case 'move':
+          SoundEngine.play('tictactoe_o');
+          break;
+        case 'jump':
+          SoundEngine.play('snake_eat');
+          break;
+        case 'king':
+          SoundEngine.play('level_up');
+          break;
+        case 'win':
+          SoundEngine.play('win');
+          break;
+        case 'foul':
+          SoundEngine.play('back');
+          break;
+        default:
+          SoundEngine.play('click');
+          break;
+      }
+    } catch (e) {
+      console.warn('Checkers audio error:', e);
+    }
+  }
+}
+
+interface CheckersProGameProps {
   onBack: () => void;
   theme?: 'light' | 'dark';
   soundEnabled?: boolean;
 }
 
-type PieceOwner = 1 | 2; // 1 = Red (Player), 2 = Navy/Silver (AI or Player 2)
-
-interface CheckerPiece {
-  id: number;
+interface Piece {
+  id: string;
   row: number;
   col: number;
-  owner: PieceOwner;
+  color: 'red' | 'dark'; // Red vs Dark pieces
   isKing: boolean;
 }
 
@@ -41,150 +72,121 @@ interface Move {
   fromCol: number;
   toRow: number;
   toCol: number;
-  jumpedPieceId: number | null; // ID of captured piece, if any
+  jumpedPiece?: Piece | null;
 }
 
-export const CheckersProGame: React.FC<CheckersProps> = ({
+export const CheckersProGame: React.FC<CheckersProGameProps> = ({
   onBack,
-  theme = 'dark',
-  soundEnabled = true,
+  theme = 'light',
+  soundEnabled = true
 }) => {
-  const [gameMode, setGameMode] = useState<'pvp' | 'ai'>('ai');
-  const [gameState, setGameState] = useState<'menu' | 'playing' | 'gameover'>('menu');
-  const [currentPlayer, setCurrentPlayer] = useState<PieceOwner>(1);
-  const [pieces, setPieces] = useState<CheckerPiece[]>([]);
-  const [selectedPiece, setSelectedPiece] = useState<CheckerPiece | null>(null);
+  const isDark = theme === 'dark';
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [vsAi, setVsAi] = useState(true);
+  const [soundOn, setSoundOn] = useState(soundEnabled);
+
+  // Core States
+  const [pieces, setPieces] = useState<Piece[]>([]);
+  const [turn, setTurn] = useState<'red' | 'dark'>('red'); // Red moves first
+  const [selectedPiece, setSelectedPiece] = useState<Piece | null>(null);
   const [validMoves, setValidMoves] = useState<Move[]>([]);
-  const [winner, setWinner] = useState<string | null>(null);
-  const [isMuted, setIsMuted] = useState(!soundEnabled);
+  const [winner, setWinner] = useState<'red' | 'dark' | null>(null);
+  const [logs, setLogs] = useState<string[]>(['Checkers match ready.']);
 
-  // Score stats: captured counts
-  const [capturedByP1, setCapturedByP1] = useState(0);
-  const [capturedByP2, setCapturedByP2] = useState(0);
-
-  const playSound = (type: 'move' | 'capture' | 'king' | 'win' | 'lose' | 'click') => {
-    if (isMuted) return;
-    try {
-      if (type === 'move') {
-        SoundEngine.play('piece_move');
-      } else if (type === 'capture') {
-        SoundEngine.play('kill_opponent');
-      } else if (type === 'king') {
-        SoundEngine.play('level_up');
-      } else if (type === 'win') {
-        SoundEngine.play('win');
-      } else if (type === 'lose') {
-        SoundEngine.play('lose');
-      } else {
-        SoundEngine.play('click');
-      }
-    } catch (e) {
-      console.warn('Audio failure:', e);
-    }
+  const playSound = (type: 'click' | 'move' | 'jump' | 'king' | 'win' | 'foul') => {
+    CheckersAudio.play(type, soundOn);
   };
 
-  const initializeBoard = () => {
-    const initialPieces: CheckerPiece[] = [];
+  const addLog = (msg: string) => {
+    setLogs(prev => [msg, ...prev.slice(0, 10)]);
+  };
+
+  const initBoard = () => {
+    const initialPieces: Piece[] = [];
     let idCounter = 1;
 
-    // Rows 0, 1, 2 for Player 2 (AI - Navy)
+    // Dark pieces top 3 rows (0, 1, 2) on dark squares (row + col % 2 === 1)
     for (let r = 0; r < 3; r++) {
       for (let c = 0; c < 8; c++) {
         if ((r + c) % 2 === 1) {
           initialPieces.push({
-            id: idCounter++,
+            id: `d-${idCounter++}`,
             row: r,
             col: c,
-            owner: 2,
-            isKing: false,
+            color: 'dark',
+            isKing: false
           });
         }
       }
     }
 
-    // Rows 5, 6, 7 for Player 1 (Red)
+    // Red pieces bottom 3 rows (5, 6, 7)
     for (let r = 5; r < 8; r++) {
       for (let c = 0; c < 8; c++) {
         if ((r + c) % 2 === 1) {
           initialPieces.push({
-            id: idCounter++,
+            id: `r-${idCounter++}`,
             row: r,
             col: c,
-            owner: 1,
-            isKing: false,
+            color: 'red',
+            isKing: false
           });
         }
       }
     }
 
     setPieces(initialPieces);
+    setTurn('red');
     setSelectedPiece(null);
     setValidMoves([]);
-    setCapturedByP1(0);
-    setCapturedByP2(0);
-  };
-
-  const handleStartGame = (mode: 'pvp' | 'ai') => {
-    playSound('click');
-    setGameMode(mode);
-    setGameState('playing');
-    setCurrentPlayer(1);
     setWinner(null);
-    initializeBoard();
+    setLogs(['Match initialized! RED turns first.']);
+    setIsPlaying(true);
   };
 
-  // Get active checker pieces in board coordinate
-  const getPieceAt = (row: number, col: number, list: CheckerPiece[] = pieces): CheckerPiece | undefined => {
-    return list.find(p => p.row === row && p.col === col);
+  // Check board coordinates
+  const getPieceAt = (r: number, c: number, boardState = pieces) => {
+    return boardState.find(p => p.row === r && p.col === c) || null;
   };
 
-  // Generate all legal moves for a given piece owner
-  const generateAllLegalMoves = (owner: PieceOwner, currentPieces: CheckerPiece[] = pieces): Move[] => {
-    const moves: Move[] = [];
-    const playerPieces = currentPieces.filter(p => p.owner === owner);
+  // Find all available valid moves/jumps for a color
+  // Rule: Forced capture jumping is checked if available!
+  const getMovesForColor = (color: 'red' | 'dark', boardState = pieces): Move[] => {
+    const list: Move[] = [];
+    const colorPieces = boardState.filter(p => p.color === color);
 
-    playerPieces.forEach(p => {
-      // Directions: owner 1 moves UP (row decrements), owner 2 moves DOWN (row increments)
-      // Kings can move any directions
-      const rowDirs: number[] = [];
+    colorPieces.forEach(p => {
+      // Directions: normal red moves up (-1), dark moves down (+1). Kings move both ways.
+      const directions: number[] = [];
       if (p.isKing) {
-        rowDirs.push(-1, 1);
+        directions.push(-1, 1);
       } else {
-        rowDirs.push(p.owner === 1 ? -1 : 1);
+        directions.push(p.color === 'red' ? -1 : 1);
       }
-      const colDirs = [-1, 1];
 
-      // Single step diagonal moves & Diagonal jump moves
-      rowDirs.forEach(rd => {
-        colDirs.forEach(cd => {
-          // 1. Check simple non-jump moves
-          const targetRow = p.row + rd;
-          const targetCol = p.col + cd;
+      directions.forEach(dr => {
+        [-1, 1].forEach(dc => {
+          // 1. Single diagonal slide
+          const tr = p.row + dr;
+          const tc = p.col + dc;
 
-          if (targetRow >= 0 && targetRow < 8 && targetCol >= 0 && targetCol < 8) {
-            const blockingPiece = getPieceAt(targetRow, targetCol, currentPieces);
-            if (!blockingPiece) {
-              moves.push({
-                fromRow: p.row,
-                fromCol: p.col,
-                toRow: targetRow,
-                toCol: targetCol,
-                jumpedPieceId: null,
-              });
-            } else if (blockingPiece.owner !== p.owner) {
-              // 2. Potential Jump Move: check cell behind blocking piece
-              const landRow = targetRow + rd;
-              const landCol = targetCol + cd;
-
-              if (landRow >= 0 && landRow < 8 && landCol >= 0 && landCol < 8) {
-                const landingBlock = getPieceAt(landRow, landCol, currentPieces);
-                if (!landingBlock) {
-                  moves.push({
+          if (tr >= 0 && tr < 8 && tc >= 0 && tc < 8) {
+            const destPiece = getPieceAt(tr, tc, boardState);
+            if (!destPiece) {
+              list.push({ fromRow: p.row, fromCol: p.col, toRow: tr, toCol: tc });
+            } else if (destPiece.color !== p.color) {
+              // 2. Jump capture step
+              const jr = tr + dr;
+              const jc = tc + dc;
+              if (jr >= 0 && jr < 8 && jc >= 0 && jc < 8) {
+                const jumpDest = getPieceAt(jr, jc, boardState);
+                if (!jumpDest) {
+                  list.push({
                     fromRow: p.row,
                     fromCol: p.col,
-                    toRow: landRow,
-                    toCol: landCol,
-                    jumpedPieceId: blockingPiece.id,
+                    toRow: jr,
+                    toCol: jc,
+                    jumpedPiece: destPiece
                   });
                 }
               }
@@ -194,358 +196,383 @@ export const CheckersProGame: React.FC<CheckersProps> = ({
       });
     });
 
-    // Rule of Checkers: If jump moves exist, they are forced!
-    const jumpMoves = moves.filter(m => m.jumpedPieceId !== null);
-    return jumpMoves.length > 0 ? jumpMoves : moves;
+    // Forced Capture priority: if any capture moves exist, return ONLY those capture moves!
+    const jumps = list.filter(m => m.jumpedPiece);
+    return jumps.length > 0 ? jumps : list;
   };
 
-  // Check if current player has any legal moves left
-  const checkWinOrDraw = (currentPieces: CheckerPiece[], nextPlayer: PieceOwner) => {
-    const nextMoves = generateAllLegalMoves(nextPlayer, currentPieces);
-    if (nextMoves.length === 0) {
-      // current player wins!
-      const finalWinnerName = nextPlayer === 1 ? 
-        (gameMode === 'ai' ? 'Robot Master' : 'Player 2') : 'Player 1';
-      setWinner(finalWinnerName);
-      setGameState('gameover');
-      playSound(nextPlayer === 1 ? 'lose' : 'win');
+  // Select checker piece
+  const handlePieceClick = (piece: Piece) => {
+    if (!isPlaying || winner || turn === 'dark' && vsAi) return;
+    if (piece.color !== turn) {
+      playSound('foul');
+      return;
     }
-  };
-
-  const selectPiece = (piece: CheckerPiece) => {
-    if (gameState !== 'playing') return;
-    if (gameMode === 'ai' && currentPlayer === 2) return; // Block input during AI turn
-
-    if (piece.owner !== currentPlayer) return;
 
     playSound('click');
     setSelectedPiece(piece);
-    const allMoves = generateAllLegalMoves(currentPlayer);
-    const pieceMoves = allMoves.filter(m => m.fromRow === piece.row && m.fromCol === piece.col);
+
+    // Get valid moves for this selected piece
+    const allTurnMoves = getMovesForColor(turn);
+    const pieceMoves = allTurnMoves.filter(m => m.fromRow === piece.row && m.fromCol === piece.col);
     setValidMoves(pieceMoves);
   };
 
-  const executeMove = (move: Move) => {
-    const currentPieces = [...pieces];
-    const pieceIndex = currentPieces.findIndex(p => p.row === move.fromRow && p.col === move.fromCol);
-    if (pieceIndex === -1) return;
+  // Click on a target square
+  const handleSquareClick = (r: number, c: number) => {
+    if (!selectedPiece) return;
 
-    const movingPiece = { ...currentPieces[pieceIndex] };
-    movingPiece.row = move.toRow;
-    movingPiece.col = move.toCol;
-
-    // Check King Promotion
-    let promotedToKing = false;
-    if (!movingPiece.isKing) {
-      if ((movingPiece.owner === 1 && move.toRow === 0) || (movingPiece.owner === 2 && move.toRow === 7)) {
-        movingPiece.isKing = true;
-        promotedToKing = true;
-      }
-    }
-
-    currentPieces[pieceIndex] = movingPiece;
-
-    // Handle captures
-    let updatedPieces = currentPieces;
-    if (move.jumpedPieceId !== null) {
-      updatedPieces = currentPieces.filter(p => p.id !== move.jumpedPieceId);
-      triggerVibration('medium');
-      playSound('capture');
-      if (currentPlayer === 1) {
-        setCapturedByP1(c => c + 1);
-      } else {
-        setCapturedByP2(c => c + 1);
-      }
+    const matchedMove = validMoves.find(m => m.toRow === r && m.toCol === c);
+    if (matchedMove) {
+      executeMove(matchedMove);
     } else {
-      playSound('move');
-      triggerVibration('light');
+      setSelectedPiece(null);
+      setValidMoves([]);
+    }
+  };
+
+  const executeMove = (move: Move) => {
+    playSound(move.jumpedPiece ? 'jump' : 'move');
+    triggerVibration(move.jumpedPiece ? 'medium' : 'light');
+
+    let isPromoted = false;
+
+    const nextPieces = pieces.map(p => {
+      if (p.row === move.fromRow && p.col === move.fromCol) {
+        // Promote to King if reaching ends
+        const reachBackRow = (turn === 'red' && move.toRow === 0) || (turn === 'dark' && move.toRow === 7);
+        const makeKing = p.isKing || reachBackRow;
+        if (reachBackRow && !p.isKing) {
+          isPromoted = true;
+        }
+        return { ...p, row: move.toRow, col: move.toCol, isKing: makeKing };
+      }
+      return p;
+    });
+
+    // Remove captured piece if any
+    let filteredPieces = nextPieces;
+    if (move.jumpedPiece) {
+      filteredPieces = nextPieces.filter(p => !(p.row === move.jumpedPiece!.row && p.col === move.jumpedPiece!.col));
+      addLog(`${turn.toUpperCase()} captured an opponent checker!`);
     }
 
-    if (promotedToKing) {
+    if (isPromoted) {
       playSound('king');
+      addLog(`👑 checker promoted to KING!`);
+    } else {
+      addLog(`${turn.toUpperCase()} moved to [${move.toRow}, ${move.toCol}]`);
     }
 
-    setPieces(updatedPieces);
+    setPieces(filteredPieces);
     setSelectedPiece(null);
     setValidMoves([]);
 
-    // Turn transition
-    const nextPlayer: PieceOwner = currentPlayer === 1 ? 2 : 1;
-    setCurrentPlayer(nextPlayer);
+    // Check Win/Loss conditions
+    const opposingColor = turn === 'red' ? 'dark' : 'red';
+    const oppositionRemaining = filteredPieces.filter(p => p.color === opposingColor);
+    const oppositionMoves = getMovesForColor(opposingColor, filteredPieces);
 
-    // Evaluate for next player victory
-    checkWinOrDraw(updatedPieces, nextPlayer);
+    if (oppositionRemaining.length === 0 || oppositionMoves.length === 0) {
+      setWinner(turn);
+      playSound('win');
+      triggerVibration('heavy');
+      addLog(`🏆 MATCH COMPLETED! ${turn.toUpperCase()} WINS!`);
+      return;
+    }
+
+    // Toggle Turn
+    setTurn(opposingColor);
   };
 
-  // Run AI movement calculations
+  // Heuristic Bot AI Logic for Dark side
   useEffect(() => {
-    if (gameState !== 'playing' || gameMode !== 'ai' || currentPlayer !== 2) return;
+    if (!isPlaying || winner || turn !== 'dark' || !vsAi) return;
 
-    const aiThinkingTimer = setTimeout(() => {
-      const aiMoves = generateAllLegalMoves(2);
-      if (aiMoves.length === 0) {
-        // AI has no moves, Player 1 wins
-        setWinner('Player 1');
-        setGameState('gameover');
-        playSound('win');
+    const botTimer = setTimeout(() => {
+      const allAiMoves = getMovesForColor('dark');
+      if (allAiMoves.length === 0) {
+        setWinner('red');
+        addLog('No available moves for AI! Red Wins!');
         return;
       }
 
-      // Simple Checker Heuristic AI:
-      // Prioritize capture/jump moves, followed by moves leading to kings, or just random
-      let chosenMove = aiMoves[0];
-      const jumpMoves = aiMoves.filter(m => m.jumpedPieceId !== null);
-      
-      if (jumpMoves.length > 0) {
-        // AI chooses a random jump move
-        chosenMove = jumpMoves[Math.floor(Math.random() * jumpMoves.length)];
+      // Priority 1: Pick capture jumps
+      // Priority 2: Pick moves that promote to King
+      // Priority 3: Random/optimal selection
+      const jumps = allAiMoves.filter(m => m.jumpedPiece);
+      let selectedMove = allAiMoves[0];
+
+      if (jumps.length > 0) {
+        selectedMove = jumps[Math.floor(Math.random() * jumps.length)];
       } else {
-        // Prioritize moves that lead to bottom row for promotion
-        const promotingMoves = aiMoves.filter(m => m.toRow === 7);
-        if (promotingMoves.length > 0) {
-          chosenMove = promotingMoves[0];
+        const kingMaker = allAiMoves.find(m => m.toRow === 7);
+        if (kingMaker) {
+          selectedMove = kingMaker;
         } else {
-          // Choose a random standard diagonal move
-          chosenMove = aiMoves[Math.floor(Math.random() * aiMoves.length)];
+          // Pick randomly
+          selectedMove = allAiMoves[Math.floor(Math.random() * allAiMoves.length)];
         }
       }
 
-      executeMove(chosenMove);
-    }, 1200);
+      executeMove(selectedMove);
+    }, 1500);
 
-    return () => clearTimeout(aiThinkingTimer);
-  }, [gameState, gameMode, currentPlayer, pieces]);
+    return () => clearTimeout(botTimer);
+  }, [turn, isPlaying, winner, vsAi]);
 
   return (
-    <div className={`flex flex-col h-full w-full select-none ${theme === 'dark' ? 'bg-[#0B0F19] text-white' : 'bg-slate-50 text-slate-900'}`}>
-      
-      {/* Top Header */}
-      <header className={`p-4 flex items-center justify-between border-b ${theme === 'dark' ? 'bg-[#0F172A]/80 border-slate-800' : 'bg-white border-slate-200'}`}>
-        <button
-          onClick={() => {
-            playSound('click');
-            onBack();
-          }}
-          className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${
-            theme === 'dark' ? 'bg-slate-800 hover:bg-slate-700 text-slate-200' : 'bg-slate-100 hover:bg-slate-200 text-slate-800'
-          }`}
-        >
-          <ArrowLeft size={18} />
-        </button>
-
-        <div className="flex flex-col items-center">
-          <span className="text-xs font-bold font-sans flex items-center gap-1.5 uppercase tracking-widest text-red-500">
-            👑 Checkers Pro
-          </span>
-          <span className="text-[10px] text-slate-400 font-mono mt-0.5">Tactical Jump Strategy Board</span>
+    <div className={`absolute inset-0 flex flex-col z-20 overflow-hidden ${isDark ? 'bg-[#0b0f19] text-white' : 'bg-slate-100 text-slate-800'}`}>
+      {/* HEADER SECTION */}
+      <div className={`h-14 border-b flex items-center justify-between px-4 shrink-0 backdrop-blur-md z-10 ${isDark ? 'bg-slate-900/60 border-slate-800/60' : 'bg-white/80 border-slate-200/50'}`}>
+        <div className="flex items-center space-x-2">
+          <button
+            onClick={() => {
+              playSound('click');
+              onBack();
+            }}
+            className={`w-9 h-9 flex items-center justify-center rounded-xl transition-all cursor-pointer ${isDark ? 'bg-slate-800 hover:bg-slate-700 text-white' : 'bg-slate-200/60 hover:bg-slate-200 text-slate-700'}`}
+          >
+            <ArrowLeft size={16} />
+          </button>
+          <span className="text-xs font-black uppercase tracking-widest">Checkers Pro</span>
         </div>
 
-        <button
-          onClick={() => {
-            setIsMuted(!isMuted);
-            playSound('click');
-          }}
-          className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${
-            theme === 'dark' ? 'bg-slate-800 hover:bg-slate-700 text-slate-200' : 'bg-slate-100 hover:bg-slate-200 text-slate-800'
-          }`}
-        >
-          {isMuted ? <VolumeX size={18} /> : <Volume2 size={18} />}
-        </button>
-      </header>
+        <div className="flex items-center space-x-2">
+          <button
+            onClick={() => {
+              playSound('click');
+              setSoundOn(s => !s);
+            }}
+            className={`w-9 h-9 flex items-center justify-center rounded-xl transition-all cursor-pointer ${isDark ? 'bg-slate-800 hover:bg-slate-700 text-white' : 'bg-slate-200/60 hover:bg-slate-200 text-slate-700'}`}
+          >
+            {soundOn ? <Volume2 size={15} /> : <VolumeX size={15} />}
+          </button>
+        </div>
+      </div>
 
-      {/* Main Container */}
-      <main className="flex-1 overflow-y-auto flex flex-col items-center justify-center p-4">
+      <div className="flex-1 overflow-y-auto flex flex-col items-center justify-between p-4 space-y-4">
         <AnimatePresence mode="wait">
-          
-          {/* Menu */}
-          {gameState === 'menu' && (
+          {!isPlaying ? (
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="w-full max-w-md text-center flex flex-col gap-6"
+              className={`w-full max-w-sm p-6 rounded-3xl flex flex-col text-center shadow-lg border ${isDark ? 'bg-slate-900/80 border-slate-800' : 'bg-white border-slate-200'}`}
             >
-              <div className="p-8 rounded-3xl border shadow-xl bg-gradient-to-b from-indigo-950/40 to-slate-900/40 border-indigo-500/10">
-                <div className="w-20 h-20 bg-red-600/10 border border-red-500/20 text-red-500 rounded-full flex items-center justify-center mx-auto mb-4 text-4xl">
-                  🔴
-                </div>
-                <h2 className="text-xl font-bold tracking-tight">Checkers Pro</h2>
-                <p className="text-xs text-slate-400 mt-2 leading-relaxed">
-                  Plan your diagonal movements, jump over opponent checkers to capture them, and reach the baseline to crown your pieces as Kings!
-                </p>
+              <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-violet-600 via-fuchsia-600 to-pink-600 flex items-center justify-center text-3xl mx-auto mb-3 shadow-md text-white">
+                🏁
+              </div>
+              <h3 className="text-xl font-black uppercase tracking-wide">Checkers Pro</h3>
 
-                <div className="flex flex-col gap-3 mt-8">
+              {/* Bot toggles */}
+              <div className="space-y-2 text-left mb-6">
+                <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">Opponent Config</span>
+                <div className="grid grid-cols-2 gap-2">
                   <button
-                    onClick={() => handleStartGame('ai')}
-                    className="w-full h-12 bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white rounded-2xl flex items-center justify-center gap-2 font-bold shadow-lg shadow-red-600/20 active:scale-95 transition-all cursor-pointer text-sm"
+                    onClick={() => {
+                      playSound('click');
+                      setVsAi(true);
+                    }}
+                    className={`py-3 rounded-xl text-xs font-black uppercase transition-all border flex flex-col items-center justify-center space-y-1 ${
+                      vsAi
+                        ? 'bg-violet-600 border-violet-500 text-white shadow-md'
+                        : isDark ? 'bg-slate-800 border-slate-700 text-slate-300' : 'bg-slate-50 border-slate-200 text-slate-700'
+                    }`}
                   >
-                    <Cpu size={16} /> Play vs Checker AI
-                  </button>
-                  <button
-                    onClick={() => handleStartGame('pvp')}
-                    className="w-full h-12 bg-red-600/10 hover:bg-red-600/15 text-red-500 rounded-2xl flex items-center justify-center gap-2 font-bold border border-red-500/30 active:scale-95 transition-all cursor-pointer text-sm"
-                  >
-                    <Users size={16} /> Local Pass & Play (2 Player)
-                  </button>
-                </div>
-              </div>
-            </motion.div>
-          )}
-
-          {/* Playing Grid Board */}
-          {gameState === 'playing' && (
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              className="w-full max-w-lg flex flex-col gap-4"
-            >
-              {/* Scorecard Capture Stats */}
-              <div className="flex items-center justify-between p-3 rounded-2xl bg-slate-900/60 border border-slate-800/45">
-                <div className={`flex flex-col items-center gap-1 px-3 py-1.5 rounded-xl transition-all ${currentPlayer === 1 ? 'bg-red-600/15 border border-red-500/30 text-red-400' : 'opacity-60'}`}>
-                  <span className="text-[9px] font-bold tracking-widest uppercase">Red Player</span>
-                  <div className="text-md font-mono font-bold">{capturedByP1} <span className="text-[9px] font-sans text-slate-400">Captured</span></div>
-                </div>
-
-                <div className="text-center font-mono font-bold text-[10px] bg-slate-800/50 px-2.5 py-1 rounded-full text-slate-300">
-                  {gameMode === 'ai' && currentPlayer === 2 ? '🤖 AI THINKING...' : `👉 ACTIVE: PLAYER ${currentPlayer}`}
-                </div>
-
-                <div className={`flex flex-col items-center gap-1 px-3 py-1.5 rounded-xl transition-all ${currentPlayer === 2 ? 'bg-indigo-600/15 border border-indigo-500/30 text-indigo-400' : 'opacity-60'}`}>
-                  <span className="text-[9px] font-bold tracking-widest uppercase">{gameMode === 'ai' ? 'Navy AI' : 'Navy Player'}</span>
-                  <div className="text-md font-mono font-bold">{capturedByP2} <span className="text-[9px] font-sans text-slate-400">Captured</span></div>
-                </div>
-              </div>
-
-              {/* 8x8 Board Container */}
-              <div className="aspect-square w-full rounded-2xl border border-slate-800 bg-[#1e293b] overflow-hidden shadow-2xl p-2 grid grid-cols-8 grid-rows-8 gap-0.5">
-                {Array.from({ length: 8 }).map((_, r) => (
-                  <React.Fragment key={r}>
-                    {Array.from({ length: 8 }).map((_, c) => {
-                      const isDarkCell = (r + c) % 2 === 1;
-                      const cellPiece = getPieceAt(r, c);
-                      const isSelected = selectedPiece && selectedPiece.row === r && selectedPiece.col === c;
-                      
-                      // Check if this cell is a valid move target for current selection
-                      const landingMove = validMoves.find(m => m.toRow === r && m.toCol === c);
-                      const isHighlight = landingMove !== undefined;
-
-                      return (
-                        <div
-                          key={c}
-                          onClick={() => {
-                            if (isHighlight && landingMove) {
-                              executeMove(landingMove);
-                            } else if (cellPiece) {
-                              selectPiece(cellPiece);
-                            }
-                          }}
-                          className={`relative aspect-square flex items-center justify-center transition-colors cursor-pointer ${
-                            isDarkCell 
-                              ? isHighlight 
-                                ? 'bg-emerald-500/30 hover:bg-emerald-500/40' 
-                                : 'bg-slate-900/90' 
-                              : 'bg-slate-200'
-                          }`}
-                        >
-                          {/* Board cell coordinate label (very subtle) */}
-                          <span className="absolute bottom-0.5 right-0.5 text-[7px] text-slate-500/30 font-mono">
-                            {String.fromCharCode(65 + c)}{8 - r}
-                          </span>
-
-                          {/* Piece rendering */}
-                          {cellPiece && (
-                            <motion.div
-                              layoutId={`piece-${cellPiece.id}`}
-                              className={`w-[82%] h-[82%] rounded-full shadow-lg relative flex items-center justify-center border-2 active:scale-95 transition-all ${
-                                cellPiece.owner === 1
-                                  ? 'bg-gradient-to-br from-red-500 to-red-700 border-red-400 shadow-red-900/30'
-                                  : 'bg-gradient-to-br from-slate-600 to-slate-800 border-slate-500 shadow-slate-950/40'
-                              } ${isSelected ? 'ring-4 ring-yellow-400 scale-[1.06]' : ''}`}
-                            >
-                              {/* Inside ridges decal */}
-                              <div className="absolute w-[68%] h-[68%] rounded-full border border-white/20 flex items-center justify-center">
-                                <div className="w-[50%] h-[50%] rounded-full border border-white/10" />
-                              </div>
-
-                              {/* King visual indication */}
-                              {cellPiece.isKing && (
-                                <Crown size={12} className="text-yellow-400 drop-shadow-[0_1px_3px_rgba(0,0,0,0.5)] z-10 animate-bounce" />
-                              )}
-                            </motion.div>
-                          )}
-
-                          {/* Valid move target green circular pulse */}
-                          {isHighlight && (
-                            <div className="absolute w-4 h-4 rounded-full bg-emerald-400/80 animate-pulse border border-white/20 z-10" />
-                          )}
-                        </div>
-                      );
-                    })}
-                  </React.Fragment>
-                ))}
-              </div>
-
-              {/* Aim Helper Tip banner */}
-              <div className="p-3.5 bg-slate-900/40 rounded-xl border border-slate-800/45 text-center text-[10px] text-slate-400 font-medium">
-                ⚡ <span className="text-slate-200 font-bold">Rule Book:</span> Select your checker to highlight valid moves. Jump over opponent chips diagonally to eliminate them. Standard pieces only move forward, Kings can move any direction.
-              </div>
-            </motion.div>
-          )}
-
-          {/* Game Over Screen */}
-          {gameState === 'gameover' && (
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              className="w-full max-w-md text-center flex flex-col gap-6"
-            >
-              <div className="p-8 rounded-3xl border shadow-xl bg-gradient-to-b from-indigo-950/40 to-slate-900/40 border-indigo-500/10">
-                <div className="w-16 h-16 bg-amber-500/10 border border-amber-500/20 text-amber-500 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <Award size={32} />
-                </div>
-                <h2 className="text-xl font-bold tracking-tight">Match Complete!</h2>
-                
-                <div className="text-2xl font-bold text-red-500 mt-4 uppercase font-sans tracking-wide">
-                  🎉 {winner} Wins!
-                </div>
-
-                <div className="flex items-center justify-center gap-6 mt-6 p-4 rounded-2xl bg-slate-900/50">
-                  <div className="flex flex-col items-center">
-                    <span className="text-[10px] text-slate-400 uppercase tracking-wider font-medium">Red Player</span>
-                    <span className="text-lg font-mono font-bold mt-1">{capturedByP1} Caps</span>
-                  </div>
-                  <div className="w-[1px] h-8 bg-slate-800" />
-                  <div className="flex flex-col items-center">
-                    <span className="text-[10px] text-slate-400 uppercase tracking-wider font-medium">Navy Player</span>
-                    <span className="text-lg font-mono font-bold mt-1">{capturedByP2} Caps</span>
-                  </div>
-                </div>
-
-                <div className="flex flex-col gap-3 mt-8">
-                  <button
-                    onClick={() => handleStartGame(gameMode)}
-                    className="w-full h-12 bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white rounded-2xl flex items-center justify-center gap-2 font-bold shadow-lg shadow-red-600/20 active:scale-95 transition-all cursor-pointer text-sm"
-                  >
-                    <RotateCcw size={16} /> Rematch
+                    <Cpu size={14} />
+                    <span>vs Cobra Bot</span>
                   </button>
                   <button
                     onClick={() => {
                       playSound('click');
-                      setGameState('menu');
+                      setVsAi(false);
                     }}
-                    className="w-full h-12 bg-[#6C5CE7]/10 hover:bg-[#6C5CE7]/15 text-[#6C5CE7] rounded-2xl flex items-center justify-center gap-2 font-bold border border-[#6C5CE7]/30 active:scale-95 transition-all cursor-pointer text-sm"
+                    className={`py-3 rounded-xl text-xs font-black uppercase transition-all border flex flex-col items-center justify-center space-y-1 ${
+                      !vsAi
+                        ? 'bg-violet-600 border-violet-500 text-white shadow-md'
+                        : isDark ? 'bg-slate-800 border-slate-700 text-slate-300' : 'bg-slate-50 border-slate-200 text-slate-700'
+                    }`}
                   >
-                    Main Menu
+                    <User size={14} />
+                    <span>Pass & Play</span>
                   </button>
                 </div>
               </div>
+
+              <button
+                onClick={initBoard}
+                className="w-full py-3.5 bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white font-extrabold text-xs uppercase tracking-wider rounded-2xl flex items-center justify-center space-x-2 shadow-lg hover:brightness-105 active:scale-95 transition-all cursor-pointer"
+              >
+                <Play size={14} fill="currentColor" />
+                <span>Initialize Board</span>
+              </button>
+            </motion.div>
+          ) : (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="w-full max-w-5xl flex flex-col md:flex-row items-center md:items-start justify-center gap-6"
+            >
+              {/* LEFT COLUMN: THE CHECKERS BOARD */}
+              <div className="flex-1 max-w-[500px] w-full flex flex-col items-center">
+                {/* 8X8 CHECKERS BOARD */}
+                <div className={`aspect-square w-full rounded-[24px] overflow-hidden p-2.5 grid grid-cols-8 grid-rows-8 border gap-0.5 shadow-xl relative ${
+                  isDark ? 'bg-slate-950 border-slate-800' : 'bg-white border-slate-200'
+                }`}>
+                  {Array.from({ length: 8 }).map((_, r) =>
+                    Array.from({ length: 8 }).map((_, c) => {
+                      const isDarkSquare = (r + c) % 2 === 1;
+                      const pieceOnSquare = getPieceAt(r, c);
+                      const isTargetableMove = validMoves.some(m => m.toRow === r && m.toCol === c);
+
+                      return (
+                        <div
+                          key={`${r}-${c}`}
+                          onClick={() => {
+                            if (isTargetableMove) {
+                              handleSquareClick(r, c);
+                            }
+                          }}
+                          className={`w-full aspect-square flex items-center justify-center relative transition-all duration-150 ${
+                            isDarkSquare
+                              ? isDark ? 'bg-slate-900/50' : 'bg-slate-800/10'
+                              : isDark ? 'bg-slate-950' : 'bg-slate-50'
+                          } ${isTargetableMove ? 'cursor-pointer bg-emerald-500/25 ring-2 ring-emerald-500' : ''}`}
+                        >
+                          {/* Highlights valid circles */}
+                          {isTargetableMove && (
+                            <div className="w-3.5 h-3.5 bg-emerald-500 rounded-full animate-ping pointer-events-none" />
+                          )}
+
+                          {/* Pieces rendering */}
+                          {pieceOnSquare && (
+                            <motion.div
+                              layout
+                              onClick={() => handlePieceClick(pieceOnSquare)}
+                              className={`w-4/5 h-4/5 rounded-full border-2 flex items-center justify-center cursor-pointer relative shadow-lg ${
+                                pieceOnSquare.color === 'red'
+                                  ? 'bg-red-600 border-red-400 shadow-red-950/45'
+                                  : 'bg-slate-800 border-slate-600 shadow-black/45'
+                              } ${
+                                selectedPiece?.id === pieceOnSquare.id
+                                  ? 'ring-4 ring-offset-2 ring-indigo-500 scale-105 z-10'
+                                  : ''
+                              }`}
+                            >
+                              {/* King crowns */}
+                              {pieceOnSquare.isKing && (
+                                <Crown size={11} className="text-yellow-400 drop-shadow-sm" fill="currentColor" />
+                              )}
+                            </motion.div>
+                          )}
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+
+              {/* RIGHT COLUMN: STATS & CONTROLS */}
+              <div className="w-full md:w-[340px] shrink-0 flex flex-col space-y-4">
+                {/* STATUS CARD */}
+                <div className={`p-3 rounded-2xl border flex items-center justify-between ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}>
+                  <div className="flex items-center space-x-2.5">
+                    <div className={`w-3.5 h-3.5 rounded-full ${turn === 'red' ? 'bg-red-500 animate-ping' : 'bg-slate-400 animate-pulse'}`} />
+                    <div className="text-left">
+                      <span className="text-[9px] font-black text-slate-400 block uppercase leading-tight">ACTIVE STATUS</span>
+                      <span className="text-xs font-black tracking-tight">{turn === 'red' ? 'RED PIECES (YOU)' : 'DARK PIECES (AI)'}</span>
+                    </div>
+                  </div>
+
+                  {/* Score */}
+                  <div className="text-right">
+                    <span className="text-[8px] font-black text-slate-400 block uppercase leading-tight">PIECES LEFT</span>
+                    <span className="text-xs font-mono font-black text-indigo-400">
+                      🔴 {pieces.filter(p => p.color === 'red').length} | ⚫ {pieces.filter(p => p.color === 'dark').length}
+                    </span>
+                  </div>
+                </div>
+
+                {/* ENGINE FEED */}
+                <div className={`p-3 rounded-2xl border text-left h-24 overflow-y-auto ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}>
+                  <span className="text-[8px] font-black text-slate-400 uppercase tracking-wider block mb-1">Game Engine Feed</span>
+                  <div className="flex flex-col space-y-0.5 font-mono text-[9px]">
+                    {logs.map((log, i) => (
+                      <div key={i} className={log.includes('captured') || log.includes('WINS') ? 'text-amber-400 font-bold' : log.includes('KING') ? 'text-violet-400 font-bold' : 'text-slate-400'}>
+                        {log}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* RE-RACK CONTROL */}
+                <button
+                  onClick={() => {
+                    playSound('click');
+                    setIsPlaying(false);
+                  }}
+                  className={`w-full py-2.5 rounded-xl text-xs font-black uppercase tracking-wider flex items-center justify-center space-x-1 border ${
+                    isDark ? 'bg-slate-800 border-slate-700 text-slate-300' : 'bg-slate-100 border-slate-200 text-slate-700'
+                  }`}
+                >
+                  <RotateCcw size={13} />
+                  <span>Restart Session</span>
+                </button>
+              </div>
             </motion.div>
           )}
-
         </AnimatePresence>
-      </main>
+      </div>
+
+      {/* GAME OVER WIN MODAL */}
+      <AnimatePresence>
+        {winner && (
+          <div className="absolute inset-0 bg-black/85 flex items-center justify-center p-6 z-50 backdrop-blur-md">
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className={`w-full max-w-sm p-6 rounded-3xl text-center border shadow-2xl relative ${
+                isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
+              }`}
+            >
+              <div className="w-16 h-16 rounded-full bg-gradient-to-b from-amber-400 to-yellow-600 flex items-center justify-center text-3xl mx-auto mb-3 animate-bounce shadow-md">
+                🏆
+              </div>
+              <h2 className="text-xl font-black uppercase text-amber-500">Board Conquered!</h2>
+              <p className="text-xs text-slate-400 mt-1 mb-5 font-bold">
+                No legal moves or checkers remain for the opponent!
+              </p>
+
+              <div className="bg-white/5 border border-white/10 rounded-2xl p-4 flex flex-col items-center justify-center space-y-1 mb-6">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Match Outcome</span>
+                <span className="text-base font-black text-amber-400 uppercase tracking-wide">
+                  {winner.toUpperCase()} DOMINATED
+                </span>
+              </div>
+
+              <div className="flex space-x-3">
+                <button
+                  onClick={initBoard}
+                  className="flex-1 bg-violet-600 hover:bg-violet-500 text-white font-black text-xs py-3 rounded-xl uppercase tracking-wider shadow-lg active:scale-95 transition-all cursor-pointer"
+                >
+                  Match Again
+                </button>
+                <button
+                  onClick={() => {
+                    playSound('click');
+                    setIsPlaying(false);
+                  }}
+                  className="px-5 bg-white/10 hover:bg-white/15 text-white font-black text-xs py-3 rounded-xl uppercase tracking-wider active:scale-95 transition-all cursor-pointer"
+                >
+                  Lobby
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

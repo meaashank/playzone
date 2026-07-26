@@ -652,9 +652,6 @@ export const TicTacToeGame: React.FC<TicTacToeGameProps> = ({
                 <h1 className="text-3xl font-black tracking-tight uppercase bg-gradient-to-r from-amber-400 via-orange-300 to-cyan-300 bg-clip-text text-transparent">
                   Tic Tac Toe
                 </h1>
-                <p className={`text-xs max-w-[280px] leading-relaxed mx-auto ${activeTheme.subtitleColor}`}>
-                  Say goodbye to flat white grids! Choose your premium visual skin, challenge the AI Bot, or battle local friends!
-                </p>
               </div>
 
               {/* Mode Selection Cards */}
@@ -812,7 +809,7 @@ export const TicTacToeGame: React.FC<TicTacToeGameProps> = ({
         ) : (
           
           /* ACTIVE MATCH LAYOUT */
-          <div className="flex-1 flex flex-col justify-between w-full max-w-md md:max-w-xl space-y-4">
+          <div className="flex-1 flex flex-col justify-between w-full max-w-lg md:max-w-2xl space-y-4">
             
             {/* Top Match Stats */}
             <div className="flex items-center justify-between px-2">

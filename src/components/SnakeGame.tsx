@@ -1755,27 +1755,7 @@ export const SnakeGame: React.FC<SnakeGameProps> = ({
                   Ultra Premium slither arena
                 </p>
 
-                {/* Info summary */}
-                <div className="max-w-xs bg-white/5 border border-white/10 p-4 rounded-2xl space-y-2.5 text-left mb-6 text-[10px] text-slate-300 leading-normal">
-                  <div className="flex items-start space-x-2">
-                    <span className="text-amber-400">🛡️</span>
-                    <p>
-                      <strong>Active Power-ups:</strong> Eat magnets 🧲, shields 🛡️, multipliers ✨ and speed boots ⚡!
-                    </p>
-                  </div>
-                  <div className="flex items-start space-x-2">
-                    <span className="text-emerald-400">🎯</span>
-                    <p>
-                      <strong>Steering Choice:</strong> Swap between continuous cursor following and classic keys settings!
-                    </p>
-                  </div>
-                  <div className="flex items-start space-x-2">
-                    <span className="text-pink-400">🎭</span>
-                    <p>
-                      <strong>Premium Skins:</strong> Earn Stars to purchase elite reptile skins with custom particle trails!
-                    </p>
-                  </div>
-                </div>
+                {/* Info summary removed to extend visual and game focus space */}
 
                 <div className="flex flex-col space-y-2.5 w-full max-w-[220px]">
                   <button

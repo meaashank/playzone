@@ -8,305 +8,304 @@ import { motion, AnimatePresence } from 'motion/react';
 import {
   ArrowLeft,
   RotateCcw,
-  Users,
-  Cpu,
-  Trophy,
-  Zap,
   Volume2,
   VolumeX,
   Play,
-  Award
+  Cpu,
+  User,
+  Zap,
+  Target,
+  Trophy
 } from 'lucide-react';
 import { triggerVibration } from '../utils/vibration';
 import SoundEngine from '../utils/audio';
 
-interface EightBallPoolProps {
+// Dynamic synthetic sound wrapper
+class PoolAudio {
+  static play(type: 'strike' | 'collision' | 'pocket' | 'cushion' | 'foul' | 'win' | 'click', enabled: boolean) {
+    if (!enabled) return;
+    try {
+      switch (type) {
+        case 'strike':
+          SoundEngine.play('snake_boost');
+          break;
+        case 'collision':
+          SoundEngine.play('click');
+          break;
+        case 'pocket':
+          SoundEngine.play('snake_eat');
+          break;
+        case 'cushion':
+          SoundEngine.play('back');
+          break;
+        case 'foul':
+          SoundEngine.play('snake_crash');
+          break;
+        case 'win':
+          SoundEngine.play('win');
+          break;
+        case 'click':
+        default:
+          SoundEngine.play('click');
+          break;
+      }
+    } catch (e) {
+      console.warn('Pool audio play ignored:', e);
+    }
+  }
+}
+
+interface EightBallPoolGameProps {
   onBack: () => void;
   theme?: 'light' | 'dark';
   soundEnabled?: boolean;
 }
 
 interface Ball {
-  id: number;
+  id: number; // 0 for cue ball, 8 for black, 1-7 for solids, 9-15 for stripes
   x: number;
   y: number;
   vx: number;
   vy: number;
+  radius: number;
   color: string;
-  type: 'cue' | 'solid' | 'stripe' | 'black';
+  isPotted: boolean;
+  type: 'cue' | 'black' | 'solid' | 'stripe';
   number: number;
-  active: boolean;
 }
 
-interface Pocket {
-  x: number;
-  y: number;
-  r: number;
-}
+const TABLE_WIDTH = 760;
+const TABLE_HEIGHT = 380;
+const BALL_RADIUS = 9.5;
+const FRICTION = 0.985;
 
-export const EightBallPoolGame: React.FC<EightBallPoolProps> = ({
+export const EightBallPoolGame: React.FC<EightBallPoolGameProps> = ({
   onBack,
-  theme = 'dark',
-  soundEnabled = true,
+  theme = 'light',
+  soundEnabled = true
 }) => {
-  const [gameMode, setGameMode] = useState<'pvp' | 'ai'>('ai');
-  const [gameState, setGameState] = useState<'menu' | 'playing' | 'gameover'>('menu');
-  const [currentPlayer, setCurrentPlayer] = useState<1 | 2>(1);
+  const isDark = theme === 'dark';
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [vsAi, setVsAi] = useState(true);
+  const [soundOn, setSoundOn] = useState(soundEnabled);
+
+  // Pool Gameplay State
+  const [score, setScore] = useState(0);
+  const [round, setRound] = useState(1);
+  const [playerType, setPlayerType] = useState<'solids' | 'stripes' | null>(null);
+  const [turn, setTurn] = useState<'player' | 'ai'>('player');
+  const [isFoul, setIsFoul] = useState(false);
+  const [logs, setLogs] = useState<string[]>(['8-Ball Pool match ready.']);
   const [winner, setWinner] = useState<string | null>(null);
-  const [score, setScore] = useState({ p1: 0, p2: 0 });
-  const [scratchMessage, setScratchMessage] = useState<string | null>(null);
-  const [isMuted, setIsMuted] = useState(!soundEnabled);
 
-  // Canvas ref
+  // Physics animation references
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const animationFrameId = useRef<number | null>(null);
-
-  // Table parameters
-  const TABLE_WIDTH = 640;
-  const TABLE_HEIGHT = 320;
-  const BALL_RADIUS = 10;
-  const FRICTION = 0.985;
-
-  // Game state refs to avoid closure stale state in animation loop
   const ballsRef = useRef<Ball[]>([]);
-  const aimingAngleRef = useRef<number>(0); // Angle in radians
-  const shootPowerRef = useRef<number>(50); // Power 0 - 100
-  const isDraggingCueRef = useRef<boolean>(false);
-  const isBallsMovingRef = useRef<boolean>(false);
+  const isAimingRef = useRef(false);
+  const aimAngleRef = useRef(0);
+  const strikePowerRef = useRef(0); // 0 to 100
+  const isChargingPowerRef = useRef(false);
+  const mousePosRef = useRef({ x: 0, y: 0 });
 
-  // Sound generator helper
-  const playSound = (type: 'hit' | 'pocket' | 'scratch' | 'cushion' | 'win' | 'click') => {
-    if (isMuted) return;
-    try {
-      if (type === 'hit') {
-        SoundEngine.play('tictactoe_x');
-      } else if (type === 'pocket') {
-        SoundEngine.play('coin');
-      } else if (type === 'scratch') {
-        SoundEngine.play('error');
-      } else if (type === 'cushion') {
-        SoundEngine.play('dice_land');
-      } else if (type === 'win') {
-        SoundEngine.play('win');
-      } else {
-        SoundEngine.play('click');
-      }
-    } catch (e) {
-      console.warn('Audio play failure:', e);
-    }
+  const playSound = (type: 'strike' | 'collision' | 'pocket' | 'cushion' | 'foul' | 'win' | 'click') => {
+    PoolAudio.play(type, soundOn);
   };
 
-  const pockets: Pocket[] = [
-    { x: 15, y: 15, r: 18 }, // Top-Left
-    { x: TABLE_WIDTH / 2, y: 12, r: 16 }, // Top-Middle
-    { x: TABLE_WIDTH - 15, y: 15, r: 18 }, // Top-Right
-    { x: 15, y: TABLE_HEIGHT - 15, r: 18 }, // Bottom-Left
-    { x: TABLE_WIDTH / 2, y: TABLE_HEIGHT - 12, r: 16 }, // Bottom-Middle
-    { x: TABLE_WIDTH - 15, y: TABLE_HEIGHT - 15, r: 18 }, // Bottom-Right
-  ];
+  const addLog = (msg: string) => {
+    setLogs(prev => [msg, ...prev.slice(0, 10)]);
+  };
 
-  const initializeBalls = () => {
+  const initBalls = () => {
     const balls: Ball[] = [];
-    
-    // 1. Cue Ball
+
+    // Cue Ball (0)
     balls.push({
       id: 0,
       x: TABLE_WIDTH * 0.25,
       y: TABLE_HEIGHT * 0.5,
       vx: 0,
       vy: 0,
-      color: '#FFFFFF',
+      radius: BALL_RADIUS,
+      color: '#ffffff',
+      isPotted: false,
       type: 'cue',
-      number: 0,
-      active: true,
+      number: 0
     });
 
-    // 2. Target balls in a pyramid on the right
+    // Triangle Rack positioning for the other 15 balls
+    // Standard 8 ball arrangement: 8-ball is in center, corners contain one stripe and one solid
     const startX = TABLE_WIDTH * 0.7;
     const startY = TABLE_HEIGHT * 0.5;
-    const colors = [
-      '#F1C40F', // 1 Yellow (Solid)
-      '#2980B9', // 10 Blue (Stripe)
-      '#E74C3C', // 3 Red (Solid)
-      '#111111', // 8 Black (8 Ball)
-      '#E67E22', // 11 Orange (Stripe)
-      '#27AE60', // 6 Green (Solid)
-      '#8E44AD', // 12 Purple (Stripe)
+    const spacing = BALL_RADIUS * 2.02;
+
+    const arrangement = [
+      { id: 1, type: 'solid', color: '#fbbf24', number: 1 }, // yellow
+      { id: 9, type: 'stripe', color: '#fbbf24', number: 9 }, // yellow stripe
+      { id: 2, type: 'solid', color: '#2563eb', number: 2 }, // blue
+      { id: 8, type: 'black', color: '#111827', number: 8 }, // 8-ball center
+      { id: 10, type: 'stripe', color: '#2563eb', number: 10 },
+      { id: 3, type: 'solid', color: '#dc2626', number: 3 }, // red
+      { id: 4, type: 'solid', color: '#7c3aed', number: 4 }, // purple
+      { id: 11, type: 'stripe', color: '#dc2626', number: 11 },
+      { id: 12, type: 'stripe', color: '#7c3aed', number: 12 },
+      { id: 5, type: 'solid', color: '#ea580c', number: 5 }, // orange
+      { id: 13, type: 'stripe', color: '#ea580c', number: 13 },
+      { id: 6, type: 'solid', color: '#16a34a', number: 6 }, // green
+      { id: 14, type: 'stripe', color: '#16a34a', number: 14 },
+      { id: 7, type: 'solid', color: '#9a3412', number: 7 }, // burgundy
+      { id: 15, type: 'stripe', color: '#9a3412', number: 15 }
     ];
-    const types: ('solid' | 'stripe' | 'black')[] = [
-      'solid',
-      'stripe',
-      'solid',
-      'black',
-      'stripe',
-      'solid',
-      'stripe',
-    ];
-    const numbers = [1, 10, 3, 8, 11, 6, 12];
 
-    let index = 0;
-    // Layer 1
-    balls.push({
-      id: 1,
-      x: startX,
-      y: startY,
-      vx: 0,
-      vy: 0,
-      color: colors[0],
-      type: types[0],
-      number: numbers[0],
-      active: true,
-    });
-
-    // Layer 2
-    balls.push({
-      id: 2,
-      x: startX + BALL_RADIUS * 1.8,
-      y: startY - BALL_RADIUS * 1.1,
-      vx: 0,
-      vy: 0,
-      color: colors[1],
-      type: types[1],
-      number: numbers[1],
-      active: true,
-    });
-    balls.push({
-      id: 3,
-      x: startX + BALL_RADIUS * 1.8,
-      y: startY + BALL_RADIUS * 1.1,
-      vx: 0,
-      vy: 0,
-      color: colors[2],
-      type: types[2],
-      number: numbers[2],
-      active: true,
-    });
-
-    // Layer 3 (Contains 8 Ball in center)
-    balls.push({
-      id: 4,
-      x: startX + BALL_RADIUS * 3.6,
-      y: startY - BALL_RADIUS * 2.2,
-      vx: 0,
-      vy: 0,
-      color: colors[3], // Black
-      type: types[3],
-      number: numbers[3],
-      active: true,
-    });
-    balls.push({
-      id: 5,
-      x: startX + BALL_RADIUS * 3.6,
-      y: startY,
-      vx: 0,
-      vy: 0,
-      color: colors[4],
-      type: types[4],
-      number: numbers[4],
-      active: true,
-    });
-    balls.push({
-      id: 6,
-      x: startX + BALL_RADIUS * 3.6,
-      y: startY + BALL_RADIUS * 2.2,
-      vx: 0,
-      vy: 0,
-      color: colors[5],
-      type: types[5],
-      number: numbers[5],
-      active: true,
-    });
+    let arrIdx = 0;
+    // Row layout of pyramid (5 rows)
+    for (let row = 0; row < 5; row++) {
+      const rx = startX + row * spacing * 0.866; // cos(30 deg)
+      const rowYStart = startY - (row * spacing) / 2;
+      for (let col = 0; col <= row; col++) {
+        const ry = rowYStart + col * spacing;
+        const config = arrangement[arrIdx++];
+        if (config) {
+          balls.push({
+            id: config.id,
+            x: rx,
+            y: ry,
+            vx: 0,
+            vy: 0,
+            radius: BALL_RADIUS,
+            color: config.color,
+            isPotted: false,
+            type: config.type as any,
+            number: config.number
+          });
+        }
+      }
+    }
 
     ballsRef.current = balls;
-    isBallsMovingRef.current = false;
   };
 
-  const handleStartGame = (mode: 'pvp' | 'ai') => {
-    playSound('click');
-    setGameMode(mode);
-    setGameState('playing');
-    setCurrentPlayer(1);
-    setScore({ p1: 0, p2: 0 });
-    setWinner(null);
-    setScratchMessage(null);
-    initializeBalls();
-  };
-
-  const handleShoot = () => {
-    if (isBallsMovingRef.current) return;
-
-    const cueBall = ballsRef.current.find(b => b.type === 'cue');
-    if (!cueBall || !cueBall.active) return;
-
-    const power = shootPowerRef.current;
-    const angle = aimingAngleRef.current;
-
-    // Convert aim angle and power into force velocities
-    const impulse = (power / 100) * 15; // Max speed 15px/frame
-    cueBall.vx = Math.cos(angle) * impulse;
-    cueBall.vy = Math.sin(angle) * impulse;
-
-    isBallsMovingRef.current = true;
+  const startNewGame = () => {
+    playSound('collision');
     triggerVibration('medium');
-    playSound('hit');
+    initBalls();
+    setScore(0);
+    setRound(1);
+    setPlayerType(null);
+    setTurn('player');
+    setIsFoul(false);
+    setLogs(['Table is racked! Shoot when ready.']);
+    setWinner(null);
+    setIsPlaying(true);
   };
 
-  const executeAiTurn = () => {
-    const cueBall = ballsRef.current.find(b => b.type === 'cue');
-    const targetBalls = ballsRef.current.filter(b => b.active && b.type !== 'cue');
-    if (!cueBall || targetBalls.length === 0) return;
+  // 6 Pool Pockets
+  const POCKETS = [
+    { x: 10, y: 10 }, { x: TABLE_WIDTH / 2, y: 6 }, { x: TABLE_WIDTH - 10, y: 10 },
+    { x: 10, y: TABLE_HEIGHT - 10 }, { x: TABLE_WIDTH / 2, y: TABLE_HEIGHT - 6 }, { x: TABLE_WIDTH - 10, y: TABLE_HEIGHT - 10 }
+  ];
 
-    // Find the closest active ball
-    let closestBall = targetBalls[0];
-    let minDist = Infinity;
-    for (const b of targetBalls) {
-      const dist = Math.hypot(b.x - cueBall.x, b.y - cueBall.y);
-      if (dist < minDist) {
-        minDist = dist;
-        closestBall = b;
-      }
-    }
-
-    // Aim toward closest ball with some small random error based on AI inaccuracy
-    const angleToTarget = Math.atan2(closestBall.y - cueBall.y, closestBall.x - cueBall.x);
-    const aiInaccuracy = (Math.random() - 0.5) * 0.15; // slight spread
-    const angle = angleToTarget + aiInaccuracy;
-
-    aimingAngleRef.current = angle;
-    shootPowerRef.current = 40 + Math.random() * 40; // Random shoot power 40-80
-
-    // Delay visual aiming representation a bit before shooting
-    setTimeout(() => {
-      handleShoot();
-    }, 1500);
-  };
-
-  // Main game loop
-  useEffect(() => {
-    if (gameState !== 'playing') {
-      if (animationFrameId.current) {
-        cancelAnimationFrame(animationFrameId.current);
-      }
-      return;
-    }
+  // Aiming logic
+  const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (!isPlaying || winner || turn === 'ai') return;
 
     const canvas = canvasRef.current;
     if (!canvas) return;
+
+    const rect = canvas.getBoundingClientRect();
+    const mx = (e.clientX - rect.left) * (TABLE_WIDTH / rect.width);
+    const my = (e.clientY - rect.top) * (TABLE_HEIGHT / rect.height);
+
+    const cueBall = ballsRef.current[0];
+    if (cueBall && !cueBall.isPotted) {
+      const dx = mx - cueBall.x;
+      const dy = my - cueBall.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+
+      // Tap on cue ball or drag cue bar to aim
+      if (dist < 40) {
+        isChargingPowerRef.current = true;
+        triggerVibration('tick');
+      }
+    }
+  };
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const rect = canvas.getBoundingClientRect();
+    const mx = (e.clientX - rect.left) * (TABLE_WIDTH / rect.width);
+    const my = (e.clientY - rect.top) * (TABLE_HEIGHT / rect.height);
+    mousePosRef.current = { x: mx, y: my };
+
+    const cueBall = ballsRef.current[0];
+    if (cueBall) {
+      aimAngleRef.current = Math.atan2(my - cueBall.y, mx - cueBall.x);
+      
+      if (isChargingPowerRef.current) {
+        const dist = Math.sqrt(Math.pow(mx - cueBall.x, 2) + Math.pow(my - cueBall.y, 2));
+        strikePowerRef.current = Math.min(100, Math.max(10, dist * 0.7));
+      }
+    }
+  };
+
+  const handleMouseUp = () => {
+    if (isChargingPowerRef.current) {
+      isChargingPowerRef.current = false;
+      shootCueBall(strikePowerRef.current * 0.14);
+      strikePowerRef.current = 0;
+    }
+  };
+
+  const shootCueBall = (power: number) => {
+    const cueBall = ballsRef.current[0];
+    if (cueBall && !cueBall.isPotted) {
+      playSound('strike');
+      triggerVibration('medium');
+      // Strike ball opposite to aim direction
+      cueBall.vx = -Math.cos(aimAngleRef.current) * power;
+      cueBall.vy = -Math.sin(aimAngleRef.current) * power;
+      addLog(`${turn === 'player' ? 'YOU' : 'AI'} struck the cue ball!`);
+    }
+  };
+
+  // AI Aiming bot logic
+  const triggerAiTurn = () => {
+    const cueBall = ballsRef.current[0];
+    const availableBalls = ballsRef.current.filter(b => b.id > 0 && !b.isPotted);
+
+    if (cueBall && !cueBall.isPotted && availableBalls.length > 0) {
+      addLog('Cobra Bot is aiming...');
+      setTimeout(() => {
+        // Choose target ball
+        const target = availableBalls[Math.floor(Math.random() * availableBalls.length)];
+        const dx = target.x - cueBall.x;
+        const dy = target.y - cueBall.y;
+        aimAngleRef.current = Math.atan2(dy, dx) + Math.PI; // Strike in direction of target
+        const botPower = 5 + Math.random() * 6;
+
+        shootCueBall(botPower);
+      }, 1500);
+    }
+  };
+
+  // Main Canvas updates & Draw Loop
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    let scratchOccurred = false;
-    let targetBallPocketed = false;
-    let eightBallPocketed = false;
+    let animId: number;
 
     const updatePhysics = () => {
       const balls = ballsRef.current;
-      let moving = false;
+      let someBallsMoving = false;
 
-      // 1. Position update and Table bounds collisions
-      for (let i = 0; i < balls.length; i++) {
-        const b = balls[i];
-        if (!b.active) continue;
+      // 1. Move and check pocket sinks
+      balls.forEach(b => {
+        if (b.isPotted) return;
 
         b.x += b.vx;
         b.y += b.vy;
@@ -315,94 +314,75 @@ export const EightBallPoolGame: React.FC<EightBallPoolProps> = ({
         b.vx *= FRICTION;
         b.vy *= FRICTION;
 
-        // Round tiny speeds down to zero
         if (Math.abs(b.vx) < 0.05) b.vx = 0;
         if (Math.abs(b.vy) < 0.05) b.vy = 0;
 
         if (b.vx !== 0 || b.vy !== 0) {
-          moving = true;
+          someBallsMoving = true;
         }
 
-        // Table boundaries collision
-        const leftBound = 22 + BALL_RADIUS;
-        const rightBound = TABLE_WIDTH - 22 - BALL_RADIUS;
-        const topBound = 22 + BALL_RADIUS;
-        const bottomBound = TABLE_HEIGHT - 22 - BALL_RADIUS;
-
-        if (b.x < leftBound) {
-          b.x = leftBound;
-          b.vx = -b.vx * 0.9;
-          if (Math.abs(b.vx) > 0.5) playSound('cushion');
-        } else if (b.x > rightBound) {
-          b.x = rightBound;
-          b.vx = -b.vx * 0.9;
-          if (Math.abs(b.vx) > 0.5) playSound('cushion');
-        }
-
-        if (b.y < topBound) {
-          b.y = topBound;
-          b.vy = -b.vy * 0.9;
-          if (Math.abs(b.vy) > 0.5) playSound('cushion');
-        } else if (b.y > bottomBound) {
-          b.y = bottomBound;
-          b.vy = -b.vy * 0.9;
-          if (Math.abs(b.vy) > 0.5) playSound('cushion');
-        }
-
-        // 2. Check Pocketing
-        for (const p of pockets) {
-          const dist = Math.hypot(b.x - p.x, b.y - p.y);
-          if (dist < p.r) {
-            // Ball pocketed!
-            b.active = false;
+        // Pocket check
+        POCKETS.forEach(pocket => {
+          const dx = b.x - pocket.x;
+          const dy = b.y - pocket.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist < BALL_RADIUS * 1.85) {
+            b.isPotted = true;
             b.vx = 0;
             b.vy = 0;
-            triggerVibration('light');
-
-            if (b.type === 'cue') {
-              scratchOccurred = true;
-              playSound('scratch');
-            } else if (b.type === 'black') {
-              eightBallPocketed = true;
-              playSound('win');
-            } else {
-              targetBallPocketed = true;
-              playSound('pocket');
-              // Increment score
-              if (currentPlayer === 1) {
-                setScore(s => ({ ...s, p1: s.p1 + 1 }));
-              } else {
-                setScore(s => ({ ...s, p2: s.p2 + 1 }));
-              }
-            }
+            handleBallPot(b);
           }
+        });
+
+        // Cushion bounce
+        const cushionMargin = 16;
+        if (b.x < cushionMargin + b.radius) {
+          b.x = cushionMargin + b.radius;
+          b.vx = -b.vx * 0.85;
+          playSound('cushion');
+        } else if (b.x > TABLE_WIDTH - cushionMargin - b.radius) {
+          b.x = TABLE_WIDTH - cushionMargin - b.radius;
+          b.vx = -b.vx * 0.85;
+          playSound('cushion');
         }
-      }
 
-      // 3. Elastic Ball-to-Ball collisions
+        if (b.y < cushionMargin + b.radius) {
+          b.y = cushionMargin + b.radius;
+          b.vy = -b.vy * 0.85;
+          playSound('cushion');
+        } else if (b.y > TABLE_HEIGHT - cushionMargin - b.radius) {
+          b.y = TABLE_HEIGHT - cushionMargin - b.radius;
+          b.vy = -b.vy * 0.85;
+          playSound('cushion');
+        }
+      });
+
+      // 2. Handle Ball-on-Ball Elastic Collisions
       for (let i = 0; i < balls.length; i++) {
-        for (let j = i + 1; j < balls.length; j++) {
-          const b1 = balls[i];
-          const b2 = balls[j];
+        const b1 = balls[i];
+        if (b1.isPotted) continue;
 
-          if (!b1.active || !b2.active) continue;
+        for (let j = i + 1; j < balls.length; j++) {
+          const b2 = balls[j];
+          if (b2.isPotted) continue;
 
           const dx = b2.x - b1.x;
           const dy = b2.y - b1.y;
-          const dist = Math.hypot(dx, dy);
+          const dist = Math.sqrt(dx * dx + dy * dy);
 
-          if (dist < BALL_RADIUS * 2) {
-            // Overlap resolution
-            const overlap = BALL_RADIUS * 2 - dist;
+          if (dist < b1.radius + b2.radius) {
+            // Collision resolution
+            const overlap = b1.radius + b2.radius - dist;
             const nx = dx / dist;
             const ny = dy / dist;
 
+            // Move balls away to prevent stickiness
             b1.x -= nx * overlap * 0.5;
             b1.y -= ny * overlap * 0.5;
             b2.x += nx * overlap * 0.5;
             b2.y += ny * overlap * 0.5;
 
-            // Elastic collision formulas
+            // Elastic momentum physics exchange
             const kx = b1.vx - b2.vx;
             const ky = b1.vy - b2.vy;
             const p = nx * kx + ny * ky;
@@ -413,490 +393,454 @@ export const EightBallPoolGame: React.FC<EightBallPoolProps> = ({
               b2.vx += nx * p;
               b2.vy += ny * p;
 
-              if (Math.abs(p) > 0.2) {
-                playSound('hit');
+              playSound('collision');
+              if (Math.abs(p) > 2.0) {
+                triggerVibration('light');
               }
             }
           }
         }
       }
 
-      // 4. Handle state transition when balls stop moving
-      if (isBallsMovingRef.current && !moving) {
-        isBallsMovingRef.current = false;
-
-        // Resolve Turn Results
-        if (eightBallPocketed) {
-          // Pocketed 8 ball
-          const activeSolids = balls.filter(b => b.active && (b.type === 'solid' || b.type === 'stripe'));
-          if (activeSolids.length === 0) {
-            // Proper win
-            setWinner(currentPlayer === 1 ? 'Player 1' : gameMode === 'ai' ? 'Robot Master' : 'Player 2');
-          } else {
-            // Foul: 8-ball pocketed too early -> Opponent wins!
-            setWinner(currentPlayer === 1 ? (gameMode === 'ai' ? 'Robot Master' : 'Player 2') : 'Player 1');
-          }
-          setGameState('gameover');
-        } else if (scratchOccurred) {
-          // Reset cue ball
-          const cue = balls.find(b => b.type === 'cue');
-          if (cue) {
-            cue.active = true;
-            cue.x = TABLE_WIDTH * 0.25;
-            cue.y = TABLE_HEIGHT * 0.5;
-            cue.vx = 0;
-            cue.vy = 0;
-          }
-          setScratchMessage('Scratch Foul! Opponent turn.');
-          setTimeout(() => setScratchMessage(null), 2000);
-          
-          // Force turn switch
-          setCurrentPlayer(p => (p === 1 ? 2 : 1));
-        } else if (!targetBallPocketed) {
-          // If no target ball pocketed, switch turns
-          setCurrentPlayer(p => (p === 1 ? 2 : 1));
+      // Check if turn needs adjustment when all balls stop
+      if (!someBallsMoving && isPlaying && !winner) {
+        // Cue scratch replacement
+        const cueBall = balls[0];
+        if (cueBall && cueBall.isPotted) {
+          cueBall.x = TABLE_WIDTH * 0.25;
+          cueBall.y = TABLE_HEIGHT * 0.5;
+          cueBall.vx = 0;
+          cueBall.vy = 0;
+          cueBall.isPotted = false;
+          setIsFoul(true);
+          addLog('Cue ball scratch! Opponent takes ball-in-hand!');
+          triggerVibration('medium');
         }
+      }
+    };
+
+    const handleBallPot = (potted: Ball) => {
+      playSound('pocket');
+      triggerVibration('medium');
+
+      if (potted.type === 'cue') {
+        addLog('Cue ball pocketed! Foul!');
+      } else if (potted.type === 'black') {
+        // Standard 8-ball win/lose checking
+        const countRemaining = ballsRef.current.filter(b => b.id > 0 && b.type !== 'black' && !b.isPotted);
+        if (countRemaining.length === 0) {
+          setWinner(turn === 'player' ? 'YOU' : 'AI');
+          addLog(`8-ball potted! ${turn === 'player' ? 'YOU' : 'AI'} wins the match!`);
+        } else {
+          setWinner(turn === 'player' ? 'AI' : 'YOU');
+          addLog(`8-ball potted prematurely! Opposite player wins!`);
+        }
+      } else {
+        setScore(prev => prev + 100);
+        addLog(`Potted ball #${potted.number} (${potted.type.toUpperCase()})`);
       }
     };
 
     const drawTable = () => {
-      // Clear canvas
       ctx.clearRect(0, 0, TABLE_WIDTH, TABLE_HEIGHT);
 
-      // Wood cushion outer border
-      ctx.fillStyle = '#2C3E50';
-      ctx.fillRect(0, 0, TABLE_WIDTH, TABLE_HEIGHT);
-
-      // Inner green felt play area
-      ctx.fillStyle = '#16A085';
-      ctx.fillRect(20, 20, TABLE_WIDTH - 40, TABLE_HEIGHT - 40);
-
-      // Headstring line (gray)
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
-      ctx.lineWidth = 1;
+      // Outer wood border
+      ctx.fillStyle = '#1e3a1e';
+      ctx.strokeStyle = '#4a2511';
+      ctx.lineWidth = 14;
       ctx.beginPath();
-      ctx.moveTo(TABLE_WIDTH * 0.25, 20);
-      ctx.lineTo(TABLE_WIDTH * 0.25, TABLE_HEIGHT - 20);
+      ctx.roundRect(0, 0, TABLE_WIDTH, TABLE_HEIGHT, 16);
+      ctx.fill();
       ctx.stroke();
 
-      // Pockets
-      for (const p of pockets) {
-        ctx.fillStyle = '#2C3E50';
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
-        ctx.fill();
+      // Inner pool cloth
+      ctx.fillStyle = '#065f46';
+      ctx.beginPath();
+      ctx.rect(14, 14, TABLE_WIDTH - 28, TABLE_HEIGHT - 28);
+      ctx.fill();
 
-        ctx.fillStyle = '#0F172A';
+      // Pockets rendering
+      ctx.fillStyle = '#000000';
+      POCKETS.forEach(p => {
         ctx.beginPath();
-        ctx.arc(p.x, p.y, p.r - 3, 0, Math.PI * 2);
+        ctx.arc(p.x, p.y, 17, 0, Math.PI * 2);
         ctx.fill();
-      }
+        ctx.strokeStyle = '#9ca3af';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+      });
 
-      // Draw Balls
+      // Baulk Line and Spot
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(TABLE_WIDTH * 0.25, 14);
+      ctx.lineTo(TABLE_WIDTH * 0.25, TABLE_HEIGHT - 14);
+      ctx.stroke();
+
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
+      ctx.beginPath();
+      ctx.arc(TABLE_WIDTH * 0.75, TABLE_HEIGHT * 0.5, 3, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Render balls
       const balls = ballsRef.current;
-      for (const b of balls) {
-        if (!b.active) continue;
+      balls.forEach(b => {
+        if (b.isPotted) return;
 
-        // Ball Shadow
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
-        ctx.beginPath();
-        ctx.arc(b.x + 2, b.y + 2, BALL_RADIUS, 0, Math.PI * 2);
-        ctx.fill();
+        ctx.save();
+        ctx.shadowBlur = 4;
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.4)';
 
-        // Solid color circle
+        // Draw Ball Body
         ctx.fillStyle = b.color;
         ctx.beginPath();
-        ctx.arc(b.x, b.y, BALL_RADIUS, 0, Math.PI * 2);
+        ctx.arc(b.x, b.y, b.radius, 0, Math.PI * 2);
         ctx.fill();
 
-        // Stripe design
+        // Overlay stripes if applicable
         if (b.type === 'stripe') {
-          ctx.fillStyle = '#FFFFFF';
+          ctx.fillStyle = '#ffffff';
           ctx.beginPath();
-          ctx.arc(b.x, b.y, BALL_RADIUS - 2, -Math.PI / 4, Math.PI / 4);
-          ctx.lineTo(b.x, b.y);
+          ctx.arc(b.x, b.y, b.radius, Math.PI * 0.25, Math.PI * 0.75);
           ctx.fill();
-
           ctx.beginPath();
-          ctx.arc(b.x, b.y, BALL_RADIUS - 2, Math.PI * 0.75, Math.PI * 1.25);
-          ctx.lineTo(b.x, b.y);
+          ctx.arc(b.x, b.y, b.radius, Math.PI * 1.25, Math.PI * 1.75);
           ctx.fill();
         }
 
-        // Inner white circle for ball numbers
-        if (b.type !== 'cue') {
-          ctx.fillStyle = '#FFFFFF';
+        // Draw inner white center circle and number
+        if (b.id !== 0) {
+          ctx.fillStyle = '#ffffff';
           ctx.beginPath();
-          ctx.arc(b.x, b.y, BALL_RADIUS * 0.5, 0, Math.PI * 2);
+          ctx.arc(b.x, b.y, b.radius * 0.45, 0, Math.PI * 2);
           ctx.fill();
 
-          // Draw Number text
           ctx.fillStyle = '#000000';
-          ctx.font = 'bold 7px sans-serif';
+          ctx.font = `bold ${b.radius * 0.6}px sans-serif`;
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
           ctx.fillText(b.number.toString(), b.x, b.y);
-        } else {
-          // Cue ball sheen shine
-          ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
-          ctx.beginPath();
-          ctx.arc(b.x - 3, b.y - 3, 2, 0, Math.PI * 2);
-          ctx.fill();
         }
-      }
 
-      // Draw Aiming Cue Stick & Guideline
-      const cueBall = balls.find(b => b.type === 'cue');
-      if (cueBall && cueBall.active && !isBallsMovingRef.current) {
-        // Only allow shooting if it's the human's turn or PvP mode
-        const isHumanTurn = gameMode === 'pvp' || currentPlayer === 1;
+        // Gloss highlights
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.25)';
+        ctx.beginPath();
+        ctx.arc(b.x - b.radius * 0.35, b.y - b.radius * 0.35, b.radius * 0.25, 0, Math.PI * 2);
+        ctx.fill();
 
-        if (isHumanTurn) {
-          const angle = aimingAngleRef.current;
-          const power = shootPowerRef.current;
+        ctx.restore();
+      });
 
-          const dx = Math.cos(angle);
-          const dy = Math.sin(angle);
+      // Aim Guidance lines
+      const cueBall = balls[0];
+      const someBallsMoving = balls.some(b => Math.abs(b.vx) > 0.08 || Math.abs(b.vy) > 0.08);
 
-          // 1. Dotted guideline
-          ctx.strokeStyle = 'rgba(255, 255, 255, 0.45)';
-          ctx.lineWidth = 1.5;
-          ctx.setLineDash([4, 4]);
-          ctx.beginPath();
-          ctx.moveTo(cueBall.x, cueBall.y);
-          ctx.lineTo(cueBall.x + dx * 180, cueBall.y + dy * 180);
-          ctx.stroke();
-          ctx.setLineDash([]);
+      if (cueBall && !cueBall.isPotted && !someBallsMoving && isAimingRef.current && turn === 'player' && !winner) {
+        ctx.save();
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.35)';
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([4, 4]);
 
-          // 2. Aiming target dot
-          ctx.fillStyle = '#F1C40F';
-          ctx.beginPath();
-          ctx.arc(cueBall.x + dx * 60, cueBall.y + dy * 60, 3, 0, Math.PI * 2);
-          ctx.fill();
+        const dx = -Math.cos(aimAngleRef.current);
+        const dy = -Math.sin(aimAngleRef.current);
 
-          // 3. Wood Cue stick (represented on the opposite side of aim)
-          const stickDistance = 25 + (power * 0.35); // pulls back with power
-          const cueLength = 160;
+        // Draw target pointer guide
+        ctx.beginPath();
+        ctx.moveTo(cueBall.x, cueBall.y);
+        ctx.lineTo(cueBall.x + dx * 200, cueBall.y + dy * 200);
+        ctx.stroke();
 
-          const stickStartX = cueBall.x - dx * stickDistance;
-          const stickStartY = cueBall.y - dy * stickDistance;
-          const stickEndX = cueBall.x - dx * (stickDistance + cueLength);
-          const stickEndY = cueBall.y - dy * (stickDistance + cueLength);
+        ctx.restore();
 
-          // Thick wood end
-          ctx.strokeStyle = '#8E44AD'; // Purple grip
-          ctx.lineWidth = 6;
-          ctx.beginPath();
-          ctx.moveTo(stickStartX - dx * (cueLength * 0.7), stickStartY - dy * (cueLength * 0.7));
-          ctx.lineTo(stickEndX, stickEndY);
-          ctx.stroke();
+        // Visual Aim Cue Stick
+        ctx.save();
+        ctx.translate(cueBall.x, cueBall.y);
+        ctx.rotate(aimAngleRef.current);
 
-          // Thin tip end
-          ctx.strokeStyle = '#E67E22'; // Wood shaft
-          ctx.lineWidth = 4;
-          ctx.beginPath();
-          ctx.moveTo(stickStartX, stickStartY);
-          ctx.lineTo(stickStartX - dx * (cueLength * 0.7), stickStartY - dy * (cueLength * 0.7));
-          ctx.stroke();
+        const stickOffset = 22 + (isChargingPowerRef.current ? strikePowerRef.current * 0.3 : 0);
+        ctx.fillStyle = '#e5e7eb';
+        ctx.beginPath();
+        ctx.roundRect(stickOffset, -2, 130, 4, 2);
+        ctx.fill();
 
-          // Ivory cue tip white dot
-          ctx.strokeStyle = '#FFFFFF';
-          ctx.lineWidth = 4;
-          ctx.beginPath();
-          ctx.moveTo(stickStartX, stickStartY);
-          ctx.lineTo(stickStartX - dx * 3, stickStartY - dy * 3);
-          ctx.stroke();
-        }
+        // Tip
+        ctx.fillStyle = '#fbbf24';
+        ctx.beginPath();
+        ctx.rect(stickOffset, -2, 6, 4);
+        ctx.fill();
+
+        ctx.restore();
       }
     };
 
-    const loop = () => {
+    const runLoop = () => {
       updatePhysics();
       drawTable();
-      animationFrameId.current = requestAnimationFrame(loop);
+      animId = requestAnimationFrame(runLoop);
     };
 
-    // Initialize/sync first frame
-    drawTable();
-    animationFrameId.current = requestAnimationFrame(loop);
+    runLoop();
+    return () => cancelAnimationFrame(animId);
+  }, [isPlaying, turn, winner, soundOn]);
 
-    return () => {
-      if (animationFrameId.current) {
-        cancelAnimationFrame(animationFrameId.current);
-      }
-    };
-  }, [gameState, gameMode, currentPlayer]);
-
-  // Handle automatic AI moves
+  // Track isAiming state based on cursor over table
   useEffect(() => {
-    if (gameState === 'playing' && gameMode === 'ai' && currentPlayer === 2 && !isBallsMovingRef.current) {
-      executeAiTurn();
+    isAimingRef.current = isChargingPowerRef.current || true;
+  }, [strikePowerRef.current]);
+
+  // Turn management loops
+  useEffect(() => {
+    if (!isPlaying || winner) return;
+    if (turn === 'ai') {
+      triggerAiTurn();
     }
-  }, [gameState, gameMode, currentPlayer]);
+  }, [turn, isPlaying, winner]);
 
-  // Touch/Mouse controls for Aiming Angle
-  const handleCanvasInteraction = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
-    if (isBallsMovingRef.current || gameState !== 'playing') return;
-
-    // Block aiming during Robot's turn
-    if (gameMode === 'ai' && currentPlayer === 2) return;
-
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const rect = canvas.getBoundingClientRect();
-
-    let clientX = 0;
-    let clientY = 0;
-
-    if ('touches' in e) {
-      if (e.touches.length === 0) return;
-      clientX = e.touches[0].clientX;
-      clientY = e.touches[0].clientY;
-    } else {
-      clientX = e.clientX;
-      clientY = e.clientY;
-    }
-
-    const scaleX = TABLE_WIDTH / rect.width;
-    const scaleY = TABLE_HEIGHT / rect.height;
-
-    const clickX = (clientX - rect.left) * scaleX;
-    const clickY = (clientY - rect.top) * scaleY;
-
-    const cueBall = ballsRef.current.find(b => b.type === 'cue');
-    if (!cueBall) return;
-
-    // Calculate angle towards touched position
-    const angle = Math.atan2(clickY - cueBall.y, clickX - cueBall.x);
-    aimingAngleRef.current = angle;
+  // Toggle Turn test utility
+  const switchTurn = () => {
+    playSound('click');
+    setTurn(t => t === 'player' ? 'ai' : 'player');
   };
 
   return (
-    <div className={`flex flex-col h-full w-full select-none ${theme === 'dark' ? 'bg-[#0B0F19] text-white' : 'bg-slate-50 text-slate-900'}`}>
-      
-      {/* Top Navigation Bar */}
-      <header className={`p-4 flex items-center justify-between border-b ${theme === 'dark' ? 'bg-[#0F172A]/80 border-slate-800' : 'bg-white border-slate-200'}`}>
-        <button
-          onClick={() => {
-            playSound('click');
-            onBack();
-          }}
-          className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${
-            theme === 'dark' ? 'bg-slate-800 hover:bg-slate-700 text-slate-200' : 'bg-slate-100 hover:bg-slate-200 text-slate-800'
-          }`}
-        >
-          <ArrowLeft size={18} />
-        </button>
-
-        <div className="flex flex-col items-center">
-          <span className="text-xs font-bold font-sans flex items-center gap-1.5 uppercase tracking-widest text-[#6C5CE7]">
-            <Zap size={13} className="text-[#F1C40F]" /> Billiards Pool 🎱
-          </span>
-          <span className="text-[10px] text-slate-400 font-mono mt-0.5">2D Physics Simulator</span>
+    <div className={`absolute inset-0 flex flex-col z-20 overflow-hidden ${isDark ? 'bg-[#0b0f19] text-white' : 'bg-slate-100 text-slate-800'}`}>
+      {/* HEADER ROW */}
+      <div className={`h-14 border-b flex items-center justify-between px-4 shrink-0 backdrop-blur-md z-10 ${isDark ? 'bg-slate-900/60 border-slate-800/60' : 'bg-white/80 border-slate-200/50'}`}>
+        <div className="flex items-center space-x-2">
+          <button
+            onClick={() => {
+              playSound('click');
+              onBack();
+            }}
+            className={`w-9 h-9 flex items-center justify-center rounded-xl transition-all cursor-pointer ${isDark ? 'bg-slate-800 hover:bg-slate-700 text-white' : 'bg-slate-200/60 hover:bg-slate-200 text-slate-700'}`}
+          >
+            <ArrowLeft size={16} />
+          </button>
+          <span className="text-xs font-black uppercase tracking-widest">8-Ball Pool Pro</span>
         </div>
 
-        <button
-          onClick={() => {
-            setIsMuted(!isMuted);
-            playSound('click');
-          }}
-          className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${
-            theme === 'dark' ? 'bg-slate-800 hover:bg-slate-700 text-slate-200' : 'bg-slate-100 hover:bg-slate-200 text-slate-800'
-          }`}
-        >
-          {isMuted ? <VolumeX size={18} /> : <Volume2 size={18} />}
-        </button>
-      </header>
+        <div className="flex items-center space-x-2">
+          <button
+            onClick={() => {
+              playSound('click');
+              setSoundOn(s => !s);
+            }}
+            className={`w-9 h-9 flex items-center justify-center rounded-xl transition-all cursor-pointer ${isDark ? 'bg-slate-800 hover:bg-slate-700 text-white' : 'bg-slate-200/60 hover:bg-slate-200 text-slate-700'}`}
+          >
+            {soundOn ? <Volume2 size={15} /> : <VolumeX size={15} />}
+          </button>
+        </div>
+      </div>
 
-      {/* Main Content Area */}
-      <main className="flex-1 overflow-y-auto flex flex-col items-center justify-center p-4">
+      <div className="flex-1 overflow-y-auto flex flex-col items-center justify-between p-4 space-y-4">
         <AnimatePresence mode="wait">
-          
-          {/* Menu State */}
-          {gameState === 'menu' && (
+          {!isPlaying ? (
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="w-full max-w-md text-center flex flex-col gap-6"
+              className={`w-full max-w-sm p-6 rounded-3xl flex flex-col text-center shadow-lg border ${isDark ? 'bg-slate-900/80 border-slate-800' : 'bg-white border-slate-200'}`}
             >
-              <div className="p-8 rounded-3xl border shadow-xl bg-gradient-to-b from-indigo-950/40 to-slate-900/40 border-indigo-500/10">
-                <div className="w-20 h-20 bg-indigo-600/10 border border-indigo-500/20 text-[#6C5CE7] rounded-full flex items-center justify-center mx-auto mb-4 text-4xl">
-                  🎱
-                </div>
-                <h2 className="text-xl font-bold tracking-tight">8 Ball Retro Pool</h2>
-                <p className="text-xs text-slate-400 mt-2 leading-relaxed">
-                  Test your precision, angles, and power control in our realistic, ad-free offline pool simulator.
-                </p>
+              <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-600 via-indigo-600 to-violet-600 flex items-center justify-center text-3xl mx-auto mb-3 shadow-md text-white">
+                🎱
+              </div>
+              <h3 className="text-xl font-black uppercase tracking-wide">8-Ball Pool</h3>
 
-                <div className="flex flex-col gap-3 mt-8">
+              {/* Mode Selection */}
+              <div className="space-y-2 text-left mb-6">
+                <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">Game Mode</span>
+                <div className="grid grid-cols-2 gap-2">
                   <button
-                    onClick={() => handleStartGame('ai')}
-                    className="w-full h-12 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white rounded-2xl flex items-center justify-center gap-2 font-bold shadow-lg shadow-indigo-600/20 active:scale-95 transition-all cursor-pointer text-sm"
-                  >
-                    <Cpu size={16} /> Play vs Robot AI
-                  </button>
-                  <button
-                    onClick={() => handleStartGame('pvp')}
-                    className="w-full h-12 bg-[#6C5CE7]/10 hover:bg-[#6C5CE7]/15 text-[#6C5CE7] rounded-2xl flex items-center justify-center gap-2 font-bold border border-[#6C5CE7]/30 active:scale-95 transition-all cursor-pointer text-sm"
-                  >
-                    <Users size={16} /> Pass & Play (2 Players)
-                  </button>
-                </div>
-              </div>
-            </motion.div>
-          )}
-
-          {/* Playing State */}
-          {gameState === 'playing' && (
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              className="w-full max-w-2xl flex flex-col gap-4"
-            >
-              {/* Scoreboard */}
-              <div className="flex items-center justify-between p-3.5 rounded-2xl bg-slate-900/60 border border-slate-800/45">
-                <div className={`flex flex-col items-center gap-1 p-2 rounded-xl transition-all ${currentPlayer === 1 ? 'bg-indigo-600/10 border border-indigo-500/20 text-[#6C5CE7]' : 'opacity-60'}`}>
-                  <span className="text-[10px] font-bold tracking-widest uppercase">Player 1</span>
-                  <div className="text-lg font-mono font-bold">{score.p1} <span className="text-[10px] font-sans text-slate-400">Balls</span></div>
-                </div>
-
-                <div className="text-center font-mono font-bold text-xs bg-slate-800/50 px-3 py-1 rounded-full text-slate-300">
-                  {gameMode === 'ai' && currentPlayer === 2 ? '🤖 ROBOT THINKING...' : `👉 ACTIVE: PLAYER ${currentPlayer}`}
-                </div>
-
-                <div className={`flex flex-col items-center gap-1 p-2 rounded-xl transition-all ${currentPlayer === 2 ? 'bg-[#E67E22]/10 border border-[#E67E22]/20 text-[#E67E22]' : 'opacity-60'}`}>
-                  <span className="text-[10px] font-bold tracking-widest uppercase">{gameMode === 'ai' ? 'Robot AI' : 'Player 2'}</span>
-                  <div className="text-lg font-mono font-bold">{score.p2} <span className="text-[10px] font-sans text-slate-400">Balls</span></div>
-                </div>
-              </div>
-
-              {/* Pool Table Canvas Wrapper */}
-              <div className="relative aspect-[2/1] w-full rounded-2xl border border-indigo-500/10 bg-[#0B0F19] overflow-hidden shadow-inner select-none">
-                <canvas
-                  ref={canvasRef}
-                  width={TABLE_WIDTH}
-                  height={TABLE_HEIGHT}
-                  className="w-full h-full block cursor-crosshair touch-none"
-                  onMouseDown={handleCanvasInteraction}
-                  onMouseMove={(e) => {
-                    if (e.buttons === 1) handleCanvasInteraction(e);
-                  }}
-                  onTouchStart={handleCanvasInteraction}
-                  onTouchMove={handleCanvasInteraction}
-                />
-
-                {/* Foul/Scratch message Overlay */}
-                <AnimatePresence>
-                  {scratchMessage && (
-                    <motion.div
-                      initial={{ opacity: 0, scale: 0.9 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      exit={{ opacity: 0 }}
-                      className="absolute inset-0 flex items-center justify-center bg-black/60 pointer-events-none"
-                    >
-                      <div className="bg-red-600/90 text-white font-bold px-5 py-2.5 rounded-full text-xs shadow-lg uppercase tracking-widest flex items-center gap-2">
-                        ⚠️ {scratchMessage}
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
-
-              {/* Bottom Cue Controller Controls (Power & Aiming helper) */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-center mt-2 p-3.5 bg-slate-900/40 rounded-2xl border border-slate-800/40">
-                
-                {/* Aiming Drag Indicator Hint */}
-                <div className="text-left text-[10px] text-slate-400 font-medium">
-                  💡 <span className="text-slate-200 font-bold">How to Aim:</span> Drag or tap anywhere inside the green pool table above to rotate your cue angle.
-                </div>
-
-                {/* Power Slider */}
-                <div className="flex flex-col gap-1.5 w-full">
-                  <div className="flex items-center justify-between text-[10px] font-mono font-bold text-slate-400">
-                    <span>SHOOT POWER</span>
-                    <span className="text-[#6C5CE7]">{shootPowerRef.current}%</span>
-                  </div>
-                  <input
-                    type="range"
-                    min="10"
-                    max="100"
-                    defaultValue="50"
-                    onChange={(e) => {
-                      shootPowerRef.current = parseInt(e.target.value);
-                      triggerVibration('tick');
+                    onClick={() => {
+                      playSound('click');
+                      setVsAi(true);
                     }}
-                    disabled={isBallsMovingRef.current || (gameMode === 'ai' && currentPlayer === 2)}
-                    className="w-full h-2 rounded-lg appearance-none cursor-pointer accent-[#6C5CE7] bg-slate-800 disabled:opacity-40"
-                  />
-                </div>
-
-                {/* Shoot Button */}
-                <button
-                  onClick={handleShoot}
-                  disabled={isBallsMovingRef.current || (gameMode === 'ai' && currentPlayer === 2)}
-                  className="h-11 bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-500 hover:to-orange-500 disabled:from-slate-800 disabled:to-slate-800 text-white rounded-xl flex items-center justify-center gap-2 font-bold tracking-widest text-xs uppercase shadow-lg shadow-red-600/10 active:scale-95 transition-all cursor-pointer"
-                >
-                  <Play size={14} className="fill-current" /> SHOOT CUE ⚡
-                </button>
-              </div>
-            </motion.div>
-          )}
-
-          {/* Game Over State */}
-          {gameState === 'gameover' && (
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              className="w-full max-w-md text-center flex flex-col gap-6"
-            >
-              <div className="p-8 rounded-3xl border shadow-xl bg-gradient-to-b from-indigo-950/40 to-slate-900/40 border-indigo-500/10">
-                <div className="w-16 h-16 bg-amber-500/10 border border-amber-500/20 text-amber-500 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <Award size={32} />
-                </div>
-                <h2 className="text-xl font-bold tracking-tight">Game Finished!</h2>
-                
-                <div className="text-2xl font-bold text-[#F1C40F] mt-4 uppercase font-sans tracking-wide">
-                  🎉 {winner} Wins!
-                </div>
-
-                <div className="flex items-center justify-center gap-6 mt-6 p-4 rounded-2xl bg-slate-900/50">
-                  <div className="flex flex-col items-center">
-                    <span className="text-[10px] text-slate-400 uppercase tracking-wider font-medium">Player 1</span>
-                    <span className="text-xl font-mono font-bold mt-1">{score.p1}</span>
-                  </div>
-                  <div className="w-[1px] h-8 bg-slate-800" />
-                  <div className="flex flex-col items-center">
-                    <span className="text-[10px] text-slate-400 uppercase tracking-wider font-medium">Player 2</span>
-                    <span className="text-xl font-mono font-bold mt-1">{score.p2}</span>
-                  </div>
-                </div>
-
-                <div className="flex flex-col gap-3 mt-8">
-                  <button
-                    onClick={() => handleStartGame(gameMode)}
-                    className="w-full h-12 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white rounded-2xl flex items-center justify-center gap-2 font-bold shadow-lg shadow-indigo-600/20 active:scale-95 transition-all cursor-pointer text-sm"
+                    className={`py-3 rounded-xl text-xs font-black uppercase transition-all border flex flex-col items-center justify-center space-y-1 ${
+                      vsAi
+                        ? 'bg-blue-600 border-blue-500 text-white shadow-md'
+                        : isDark ? 'bg-slate-800 border-slate-700 text-slate-300' : 'bg-slate-50 border-slate-200 text-slate-700'
+                    }`}
                   >
-                    <RotateCcw size={16} /> Rematch
+                    <Cpu size={14} />
+                    <span>vs Cobra Bot</span>
                   </button>
                   <button
                     onClick={() => {
                       playSound('click');
-                      setGameState('menu');
+                      setVsAi(false);
                     }}
-                    className="w-full h-12 bg-[#6C5CE7]/10 hover:bg-[#6C5CE7]/15 text-[#6C5CE7] rounded-2xl flex items-center justify-center gap-2 font-bold border border-[#6C5CE7]/30 active:scale-95 transition-all cursor-pointer text-sm"
+                    className={`py-3 rounded-xl text-xs font-black uppercase transition-all border flex flex-col items-center justify-center space-y-1 ${
+                      !vsAi
+                        ? 'bg-blue-600 border-blue-500 text-white shadow-md'
+                        : isDark ? 'bg-slate-800 border-slate-700 text-slate-300' : 'bg-slate-50 border-slate-200 text-slate-700'
+                    }`}
                   >
-                    Main Menu
+                    <User size={14} />
+                    <span>Free Practice</span>
                   </button>
                 </div>
               </div>
+
+              <button
+                onClick={startNewGame}
+                className="w-full py-3.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-extrabold text-xs uppercase tracking-wider rounded-2xl flex items-center justify-center space-x-2 shadow-lg hover:brightness-105 active:scale-95 transition-all cursor-pointer"
+              >
+                <Play size={14} fill="currentColor" />
+                <span>Rack the Table</span>
+              </button>
+            </motion.div>
+          ) : (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="w-full max-w-5xl flex flex-col md:flex-row items-center md:items-start justify-center gap-6"
+            >
+              {/* LEFT COLUMN: THE POOL TABLE */}
+              <div className="flex-1 max-w-[760px] w-full flex flex-col items-center">
+                {/* PHYSICS CANVAS */}
+                <div className="w-full overflow-hidden select-none rounded-[28px] border border-slate-800 shadow-2xl p-2 bg-[#090d16]">
+                  <canvas
+                    ref={canvasRef}
+                    width={TABLE_WIDTH}
+                    height={TABLE_HEIGHT}
+                    onMouseDown={handleMouseDown}
+                    onMouseMove={handleMouseMove}
+                    onMouseUp={handleMouseUp}
+                    className="mx-auto block cursor-crosshair max-w-full"
+                  />
+                </div>
+              </div>
+
+              {/* RIGHT COLUMN: CONTROLS & STATS */}
+              <div className="w-full md:w-[340px] shrink-0 flex flex-col space-y-4">
+                {/* INTERACTIVE HUD */}
+                <div className={`p-3 rounded-2xl border flex items-center justify-between ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}>
+                  <div className="flex items-center space-x-2.5">
+                    <div className={`w-3.5 h-3.5 rounded-full ${turn === 'player' ? 'bg-emerald-500 animate-ping' : 'bg-amber-500 animate-pulse'}`} />
+                    <div className="text-left">
+                      <span className="text-[9px] font-black text-slate-400 block uppercase leading-tight">CUE CONTROL</span>
+                      <span className="text-xs font-black tracking-tight">{turn === 'player' ? 'YOUR SHOT' : 'COBRA BOT SHOT'}</span>
+                    </div>
+                  </div>
+
+                  {/* Score panel */}
+                  <div className="flex items-center space-x-4">
+                    <div className="text-right">
+                      <span className="text-[8px] font-black text-slate-400 block uppercase leading-tight">SCORE</span>
+                      <span className="text-xs font-mono font-black text-indigo-400">{score} XP</span>
+                    </div>
+                    {vsAi && (
+                      <button
+                        onClick={switchTurn}
+                        className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all border ${
+                          isDark ? 'bg-slate-800 hover:bg-slate-700 border-slate-700' : 'bg-slate-100 hover:bg-slate-200 border-slate-200'
+                        }`}
+                      >
+                        Swap
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* AIMING & STRIKE POWER SLIDER */}
+                {turn === 'player' && (
+                  <div className={`p-4 rounded-2xl border flex flex-col space-y-2 text-left ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}>
+                    <div className="flex justify-between items-center">
+                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider flex items-center space-x-1.5">
+                        <Zap size={13} className="text-amber-400 animate-pulse" />
+                        <span>Strike Power Multiplier</span>
+                      </span>
+                      <span className="font-mono text-xs font-bold text-amber-400">{Math.round(strikePowerRef.current)}%</span>
+                    </div>
+                    <div className="relative w-full h-2.5 bg-slate-800 rounded-full overflow-hidden">
+                      <div
+                        className="absolute top-0 left-0 h-full bg-gradient-to-r from-blue-500 via-indigo-500 to-rose-500 transition-all"
+                        style={{ width: `${strikePowerRef.current}%` }}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* LOGS PANEL */}
+                <div className={`p-3 rounded-2xl border text-left h-24 overflow-y-auto ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}>
+                  <span className="text-[8px] font-black text-slate-400 uppercase tracking-wider block mb-1">Game Engine Feed</span>
+                  <div className="flex flex-col space-y-0.5 font-mono text-[9px]">
+                    {logs.map((log, i) => (
+                      <div key={i} className={log.includes('YOU struck') || log.includes('wins') ? 'text-amber-400 font-bold' : log.includes('Foul') ? 'text-rose-400 font-bold' : 'text-slate-400'}>
+                        {log}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* RE-RACK TABLE CONTROL */}
+                <button
+                  onClick={() => {
+                    playSound('click');
+                    setIsPlaying(false);
+                  }}
+                  className={`w-full py-2.5 rounded-xl text-xs font-black uppercase tracking-wider flex items-center justify-center space-x-1 border ${
+                    isDark ? 'bg-slate-800 border-slate-700 text-slate-300' : 'bg-slate-100 border-slate-200 text-slate-700'
+                  }`}
+                >
+                  <RotateCcw size={13} />
+                  <span>Restart Session</span>
+                </button>
+              </div>
             </motion.div>
           )}
-
         </AnimatePresence>
-      </main>
+      </div>
+
+      {/* MATCH WINNER MODAL */}
+      <AnimatePresence>
+        {winner && (
+          <div className="absolute inset-0 bg-black/85 flex items-center justify-center p-6 z-50 backdrop-blur-md">
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className={`w-full max-w-sm p-6 rounded-3xl text-center border shadow-2xl relative ${
+                isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
+              }`}
+            >
+              <div className="w-16 h-16 rounded-full bg-gradient-to-b from-amber-400 to-yellow-600 flex items-center justify-center text-3xl mx-auto mb-3 animate-bounce shadow-md">
+                🏆
+              </div>
+              <h2 className="text-xl font-black uppercase text-amber-500">Match Decided!</h2>
+              <p className="text-xs text-slate-400 mt-1 mb-5">
+                The 8-Ball was potted cleanly in the pocket!
+              </p>
+
+              <div className="bg-white/5 border border-white/10 rounded-2xl p-4 flex flex-col items-center justify-center space-y-1 mb-6">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Match Result</span>
+                <span className="text-base font-black text-amber-400 uppercase tracking-wide">
+                  {winner === 'YOU' ? 'YOU CLAIMED GOLD!' : 'AI BOT WON'}
+                </span>
+              </div>
+
+              <div className="flex space-x-3">
+                <button
+                  onClick={startNewGame}
+                  className="flex-1 bg-blue-600 hover:bg-blue-500 text-white font-black text-xs py-3 rounded-xl uppercase tracking-wider shadow-lg active:scale-95 transition-all cursor-pointer"
+                >
+                  Rack Again
+                </button>
+                <button
+                  onClick={() => {
+                    playSound('click');
+                    setIsPlaying(false);
+                  }}
+                  className="px-5 bg-white/10 hover:bg-white/15 text-white font-black text-xs py-3 rounded-xl uppercase tracking-wider active:scale-95 transition-all cursor-pointer"
+                >
+                  Lobby
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

@@ -43,13 +43,13 @@ import { GameIconRenderer } from './GameIcons';
 import { DoodleAvatar, AvatarSelectionScreen, DOODLE_AVATARS, AvatarCustomizerScreen } from './DoodleAvatars';
 import { TicTacToeGame } from './TicTacToeGame';
 import { GroupPlay } from './GroupPlay';
-import { LudoClassicGame } from './LudoClassicGame';
 import { SnakeGame } from './SnakeGame';
+import { AiChatScreen } from './AiChatScreen';
+import { LudoClassicGame } from './LudoClassicGame';
 import { EightBallPoolGame } from './EightBallPoolGame';
 import { CarromDiscGame } from './CarromDiscGame';
 import { CheckersProGame } from './CheckersProGame';
 import { SoccerShootoutGame } from './SoccerShootoutGame';
-import { AiChatScreen } from './AiChatScreen';
 import { triggerVibration } from '../utils/vibration';
 import SoundEngine from '../utils/audio';
 
@@ -84,6 +84,22 @@ export const InteractiveScreens: React.FC<ScreensProps> = ({
   theme = 'light',
   onToggleTheme = () => {},
 }) => {
+  // Game Playability helper definitions
+  const isPlayable = (id: string) => [
+    'game-tictactoe', 'game-snake', 'game-ludo', 'game-8ball', 'game-carrom', 'game-checkers', 'game-soccer'
+  ].includes(id);
+
+  const getGameScreen = (id: string): ScreenId => {
+    if (id === 'game-tictactoe') return 'tic-tac-toe';
+    if (id === 'game-snake') return 'snake-rush';
+    if (id === 'game-ludo') return 'ludo-classic';
+    if (id === 'game-8ball') return '8ball-pool';
+    if (id === 'game-carrom') return 'carrom-disc';
+    if (id === 'game-checkers') return 'checkers-pro';
+    if (id === 'game-soccer') return 'soccer-shootout';
+    return 'home';
+  };
+
   // Local Screen states
   const [searchQuery, setSearchQuery] = useState('');
   const [searchCategory, setSearchCategory] = useState('All');
@@ -636,20 +652,8 @@ export const InteractiveScreens: React.FC<ScreensProps> = ({
                   <div
                     key={game.id}
                     onClick={() => {
-                      if (game.id === 'game-tictactoe') {
-                        setCurrentScreen('tic-tac-toe');
-                      } else if (game.id === 'game-ludo') {
-                        setCurrentScreen('ludo-classic');
-                      } else if (game.id === 'game-snake') {
-                        setCurrentScreen('snake-rush');
-                      } else if (game.id === 'game-8ball') {
-                        setCurrentScreen('8ball-pool');
-                      } else if (game.id === 'game-carrom') {
-                        setCurrentScreen('carrom-disc');
-                      } else if (game.id === 'game-checkers') {
-                        setCurrentScreen('checkers-pro');
-                      } else if (game.id === 'game-soccer') {
-                        setCurrentScreen('soccer-shootout');
+                      if (isPlayable(game.id)) {
+                        setCurrentScreen(getGameScreen(game.id));
                       } else {
                         onShowNotificationBanner(game.title, `${game.title} is coming soon in the next major release! 🎮`);
                       }
@@ -680,11 +684,11 @@ export const InteractiveScreens: React.FC<ScreensProps> = ({
                       <span className={`text-[8px] font-bold uppercase tracking-widest ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>{game.category}</span>
                       <h4 className={`text-xs font-bold tracking-tight leading-none mt-0.5 ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>{game.title}</h4>
                       <div className="flex items-center justify-between mt-2">
-                        <span className={`text-[9px] font-bold ${(game.id === 'game-tictactoe' || game.id === 'game-ludo' || game.id === 'game-snake') ? 'text-indigo-400 font-sans' : isDark ? 'text-slate-600' : 'text-slate-400'}`}>
-                          {(game.id === 'game-tictactoe' || game.id === 'game-ludo' || game.id === 'game-snake') ? 'Play Now ⚡' : 'Coming Soon'}
+                        <span className={`text-[9px] font-bold ${isPlayable(game.id) ? 'text-indigo-400 font-sans' : isDark ? 'text-slate-600' : 'text-slate-400'}`}>
+                          {isPlayable(game.id) ? 'Play Now ⚡' : 'Coming Soon'}
                         </span>
-                        <span className={`w-5 h-5 rounded-full flex items-center justify-center ${(game.id === 'game-tictactoe' || game.id === 'game-ludo' || game.id === 'game-snake') ? 'bg-indigo-950 text-indigo-400' : isDark ? 'bg-slate-800 text-slate-600' : 'bg-slate-100 text-slate-400'}`}>
-                          {(game.id === 'game-tictactoe' || game.id === 'game-ludo' || game.id === 'game-snake') ? '🎮' : <Lock size={9} />}
+                        <span className={`w-5 h-5 rounded-full flex items-center justify-center ${isPlayable(game.id) ? 'bg-indigo-950 text-indigo-400' : isDark ? 'bg-slate-800 text-slate-600' : 'bg-slate-100 text-slate-400'}`}>
+                          {isPlayable(game.id) ? '🎮' : <Lock size={9} />}
                         </span>
                       </div>
                     </div>
@@ -1311,20 +1315,8 @@ export const InteractiveScreens: React.FC<ScreensProps> = ({
                   <div
                     key={game.id}
                     onClick={() => {
-                      if (game.id === 'game-tictactoe') {
-                        setCurrentScreen('tic-tac-toe');
-                      } else if (game.id === 'game-ludo') {
-                        setCurrentScreen('ludo-classic');
-                      } else if (game.id === 'game-snake') {
-                        setCurrentScreen('snake-rush');
-                      } else if (game.id === 'game-8ball') {
-                        setCurrentScreen('8ball-pool');
-                      } else if (game.id === 'game-carrom') {
-                        setCurrentScreen('carrom-disc');
-                      } else if (game.id === 'game-checkers') {
-                        setCurrentScreen('checkers-pro');
-                      } else if (game.id === 'game-soccer') {
-                        setCurrentScreen('soccer-shootout');
+                      if (isPlayable(game.id)) {
+                        setCurrentScreen(getGameScreen(game.id));
                       } else {
                         onShowNotificationBanner(game.title, `${game.title} is ready soon!`);
                       }
@@ -1350,11 +1342,11 @@ export const InteractiveScreens: React.FC<ScreensProps> = ({
                       <span className={`text-[8px] font-bold uppercase tracking-widest ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>{game.category}</span>
                       <h4 className={`text-xs font-bold tracking-tight leading-none mt-0.5 ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>{game.title}</h4>
                       <div className="flex items-center justify-between mt-2">
-                        <span className={`text-[9px] font-bold ${(game.id === 'game-tictactoe' || game.id === 'game-ludo' || game.id === 'game-snake') ? isDark ? 'text-indigo-400 font-sans' : 'text-indigo-600 font-sans' : 'text-slate-400'}`}>
-                          {(game.id === 'game-tictactoe' || game.id === 'game-ludo' || game.id === 'game-snake') ? 'Play Now ⚡' : 'Coming Soon'}
+                        <span className={`text-[9px] font-bold ${isPlayable(game.id) ? isDark ? 'text-indigo-400 font-sans' : 'text-indigo-600 font-sans' : 'text-slate-400'}`}>
+                          {isPlayable(game.id) ? 'Play Now ⚡' : 'Coming Soon'}
                         </span>
-                        <span className={`w-5 h-5 rounded-full flex items-center justify-center ${(game.id === 'game-tictactoe' || game.id === 'game-ludo' || game.id === 'game-snake') ? isDark ? 'bg-indigo-950/40 text-indigo-400' : 'bg-indigo-50 text-indigo-600' : isDark ? 'bg-slate-800 text-slate-500' : 'bg-slate-100 text-slate-400'}`}>
-                          {(game.id === 'game-tictactoe' || game.id === 'game-ludo' || game.id === 'game-snake') ? '🎮' : <Lock size={9} />}
+                        <span className={`w-5 h-5 rounded-full flex items-center justify-center ${isPlayable(game.id) ? isDark ? 'bg-indigo-950/40 text-indigo-400' : 'bg-indigo-50 text-indigo-600' : isDark ? 'bg-slate-800 text-slate-500' : 'bg-slate-100 text-slate-400'}`}>
+                          {isPlayable(game.id) ? '🎮' : <Lock size={9} />}
                         </span>
                       </div>
                     </div>
@@ -1467,18 +1459,8 @@ export const InteractiveScreens: React.FC<ScreensProps> = ({
                       onClick={() => {
                         if (game.id === 'game-tictactoe') {
                           setCurrentScreen('tic-tac-toe');
-                        } else if (game.id === 'game-ludo') {
-                          setCurrentScreen('ludo-classic');
                         } else if (game.id === 'game-snake') {
                           setCurrentScreen('snake-rush');
-                        } else if (game.id === 'game-8ball') {
-                          setCurrentScreen('8ball-pool');
-                        } else if (game.id === 'game-carrom') {
-                          setCurrentScreen('carrom-disc');
-                        } else if (game.id === 'game-checkers') {
-                          setCurrentScreen('checkers-pro');
-                        } else if (game.id === 'game-soccer') {
-                          setCurrentScreen('soccer-shootout');
                         } else {
                           onShowNotificationBanner(game.title, `${game.title} is ready soon!`);
                         }
@@ -1504,11 +1486,11 @@ export const InteractiveScreens: React.FC<ScreensProps> = ({
                         <span className={`text-[8px] font-bold uppercase tracking-widest ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>{game.category}</span>
                         <h4 className={`text-xs font-bold tracking-tight leading-none mt-0.5 ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>{game.title}</h4>
                         <div className="flex items-center justify-between mt-2">
-                          <span className={`text-[9px] font-bold ${(game.id === 'game-tictactoe' || game.id === 'game-ludo' || game.id === 'game-snake') ? isDark ? 'text-indigo-400 font-sans' : 'text-indigo-600 font-sans' : 'text-slate-400'}`}>
-                            {(game.id === 'game-tictactoe' || game.id === 'game-ludo' || game.id === 'game-snake') ? 'Play Now ⚡' : 'Coming Soon'}
+                          <span className={`text-[9px] font-bold ${(game.id === 'game-tictactoe' || game.id === 'game-snake') ? isDark ? 'text-indigo-400 font-sans' : 'text-indigo-600 font-sans' : 'text-slate-400'}`}>
+                            {(game.id === 'game-tictactoe' || game.id === 'game-snake') ? 'Play Now ⚡' : 'Coming Soon'}
                           </span>
-                          <span className={`w-5 h-5 rounded-full flex items-center justify-center ${(game.id === 'game-tictactoe' || game.id === 'game-ludo' || game.id === 'game-snake') ? isDark ? 'bg-indigo-950/45 text-indigo-400' : 'bg-indigo-50 text-indigo-600' : isDark ? 'bg-slate-800 text-slate-500' : 'bg-slate-100 text-slate-400'}`}>
-                            {(game.id === 'game-tictactoe' || game.id === 'game-ludo' || game.id === 'game-snake') ? '🎮' : <Lock size={9} />}
+                          <span className={`w-5 h-5 rounded-full flex items-center justify-center ${(game.id === 'game-tictactoe' || game.id === 'game-snake') ? isDark ? 'bg-indigo-950/45 text-indigo-400' : 'bg-indigo-50 text-indigo-600' : isDark ? 'bg-slate-800 text-slate-500' : 'bg-slate-100 text-slate-400'}`}>
+                            {(game.id === 'game-tictactoe' || game.id === 'game-snake') ? '🎮' : <Lock size={9} />}
                           </span>
                         </div>
                       </div>
@@ -1759,34 +1741,6 @@ export const InteractiveScreens: React.FC<ScreensProps> = ({
             soundEnabled={settings.soundEnabled}
           />
         );
-      case 'snake-rush':
-        return (
-          <SnakeGame
-            onBack={() => setCurrentScreen('home')}
-            theme={theme}
-            soundEnabled={settings.soundEnabled}
-            onAddCoins={(amount) => {
-              setProfile(p => ({ ...p, coins: p.coins + amount }));
-              SoundEngine.play('coin');
-            }}
-            onAddXP={(amount) => {
-              setProfile(p => {
-                const nextXp = p.xp + amount;
-                const nextLevel = nextXp >= 100 ? p.level + 1 : p.level;
-                const finalXp = nextXp >= 100 ? nextXp - 100 : nextXp;
-                if (nextLevel > p.level) {
-                  setTimeout(() => {
-                    onShowNotificationBanner('🎉 LEVEL UP!', `Congratulations, you reached Level ${nextLevel}!`);
-                    SoundEngine.play('level_up');
-                  }, 400);
-                } else {
-                  SoundEngine.play('coin');
-                }
-                return { ...p, level: nextLevel, xp: finalXp };
-              });
-            }}
-          />
-        );
       case '8ball-pool':
         return (
           <EightBallPoolGame
@@ -1817,6 +1771,34 @@ export const InteractiveScreens: React.FC<ScreensProps> = ({
             onBack={() => setCurrentScreen('home')}
             theme={theme}
             soundEnabled={settings.soundEnabled}
+          />
+        );
+      case 'snake-rush':
+        return (
+          <SnakeGame
+            onBack={() => setCurrentScreen('home')}
+            theme={theme}
+            soundEnabled={settings.soundEnabled}
+            onAddCoins={(amount) => {
+              setProfile(p => ({ ...p, coins: p.coins + amount }));
+              SoundEngine.play('coin');
+            }}
+            onAddXP={(amount) => {
+              setProfile(p => {
+                const nextXp = p.xp + amount;
+                const nextLevel = nextXp >= 100 ? p.level + 1 : p.level;
+                const finalXp = nextXp >= 100 ? nextXp - 100 : nextXp;
+                if (nextLevel > p.level) {
+                  setTimeout(() => {
+                    onShowNotificationBanner('🎉 LEVEL UP!', `Congratulations, you reached Level ${nextLevel}!`);
+                    SoundEngine.play('level_up');
+                  }, 400);
+                } else {
+                  SoundEngine.play('coin');
+                }
+                return { ...p, level: nextLevel, xp: finalXp };
+              });
+            }}
           />
         );
       case 'ai-chat':

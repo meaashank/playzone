@@ -20,6 +20,16 @@ export default function App() {
   }, [theme]);
 
   const [currentScreen, setCurrentScreen] = useState<ScreenId>('splash');
+  const isFullScreenGame = currentScreen !== 'tic-tac-toe' && [
+    'ludo-classic',
+    'snake-rush',
+    '8ball-pool',
+    'carrom-disc',
+    'checkers-pro',
+    'soccer-shootout',
+    'group-play'
+  ].includes(currentScreen);
+
   const [favorites, setFavorites] = useState<string[]>([]);
   const [notifications, setNotifications] = useState<
     Array<{ id: string; title: string; body: string; time: string; read: boolean }>
@@ -126,11 +136,17 @@ export default function App() {
       {/* Centered Device Chassis on Desktop, Full-Screen on Mobile */}
       <div
         id="app-phone-container"
-        className={`w-full h-screen md:max-w-6xl md:max-h-[92vh] md:my-6 md:rounded-[36px] md:shadow-2xl overflow-hidden relative border-0 md:border-[6px] ${
-          theme === 'dark'
-            ? 'bg-slate-900 md:border-slate-800 shadow-[#030712]/80'
-            : 'bg-white md:border-slate-350 shadow-2xl shadow-slate-300'
-        } transition-all duration-300 flex flex-col`}
+        className={`w-full h-screen overflow-hidden relative border-0 transition-all duration-300 flex flex-col ${
+          theme === 'dark' ? 'bg-slate-900 text-slate-100' : 'bg-white text-[#2D3436]'
+        } ${
+          isFullScreenGame
+            ? 'md:max-w-none md:max-h-none md:my-0 md:rounded-none md:border-0 shadow-none'
+            : `md:max-w-6xl md:max-h-[92vh] md:my-6 md:rounded-[36px] md:border-[6px] ${
+                theme === 'dark'
+                  ? 'md:border-slate-800 shadow-2xl shadow-[#030712]/80'
+                  : 'md:border-slate-350 shadow-2xl shadow-slate-300'
+              }`
+        }`}
       >
         {/* Dynamic Slide-in Toast Banner inside the App View */}
         {toast.show && (
